@@ -99,6 +99,23 @@ class _HomePageState extends ConsumerState<HomePage>
     super.dispose();
   }
 
+  void _toggleHistory() {
+    _isUserDragging = false;
+    if (ref.read(homeProvider).isHistoryOpen) {
+      ref.read(homeProvider.notifier).closeHistory();
+      _drawerController.animateTo(0.0,
+        curve: Curves.easeOutCubic,
+        duration: const Duration(milliseconds: 300),
+      );
+    } else {
+      ref.read(homeProvider.notifier).openHistory();
+      _drawerController.animateTo(1.0,
+        curve: Curves.easeOutCubic,
+        duration: const Duration(milliseconds: 350),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final homeState = ref.watch(homeProvider);
@@ -111,13 +128,14 @@ class _HomePageState extends ConsumerState<HomePage>
     }
     _prevIsHistoryOpen = isHistoryOpen;
 
+    // 非拖拽时由 state 驱动动画
     if (!_isUserDragging) {
-      if (isHistoryOpen && _drawerController.status != AnimationStatus.completed) {
+      if (isHistoryOpen && _drawerController.isDismissed) {
         _drawerController.animateTo(1.0,
           curve: Curves.easeOutCubic,
           duration: const Duration(milliseconds: 350),
         );
-      } else if (!isHistoryOpen && _drawerController.status != AnimationStatus.dismissed) {
+      } else if (!isHistoryOpen && _drawerController.isCompleted) {
         _drawerController.animateTo(0.0,
           curve: Curves.easeOutCubic,
           duration: const Duration(milliseconds: 300),
@@ -157,15 +175,19 @@ class _HomePageState extends ConsumerState<HomePage>
               onHorizontalDragEnd: (details) {
                 _isUserDragging = false;
                 final velocity = details.primaryVelocity ?? 0;
-                if (velocity.abs() > 300) {
-                  if (velocity > 0) {
-                    ref.read(homeProvider.notifier).openHistory();
-                  } else {
-                    ref.read(homeProvider.notifier).closeHistory();
-                  }
-                } else if (_drawerController.value > 0.5) {
+                final goOpen = (velocity.abs() > 300 && velocity > 0) ||
+                               (velocity.abs() <= 300 && _drawerController.value > 0.5);
+                if (goOpen) {
+                  _drawerController.animateTo(1.0,
+                    curve: Curves.easeOutCubic,
+                    duration: const Duration(milliseconds: 200),
+                  );
                   ref.read(homeProvider.notifier).openHistory();
                 } else {
+                  _drawerController.animateTo(0.0,
+                    curve: Curves.easeOutCubic,
+                    duration: const Duration(milliseconds: 200),
+                  );
                   ref.read(homeProvider.notifier).closeHistory();
                 }
               },
@@ -203,13 +225,15 @@ class _HomePageState extends ConsumerState<HomePage>
                           fit: StackFit.expand,
                           children: [
                             RepaintBoundary(child: child!),
-                            Positioned.fill(
-                              child: IgnorePointer(
-                                child: Container(
-                                  color: Colors.white.withValues(alpha: 0.15 * v),
+                            if (v > 0.01)
+                              Positioned.fill(
+                                child: GestureDetector(
+                                  onTap: _toggleHistory,
+                                  child: Container(
+                                    color: Colors.white.withValues(alpha: 0.15 * v),
+                                  ),
                                 ),
                               ),
-                            ),
                           ],
                         ),
                       ),
@@ -261,32 +285,15 @@ class _HomePageState extends ConsumerState<HomePage>
   }
 
   Widget _buildHistoryHeader(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 14, 16, 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Text(
-            '历史记录',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          GestureDetector(
-            onTap: () => ref.read(homeProvider.notifier).closeHistory(),
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: AppColors.cardBg,
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: Icon(Icons.close, size: 20, color: AppColors.textSecondary),
-            ),
-          ),
-        ],
+    return const Padding(
+      padding: EdgeInsets.fromLTRB(20, 14, 16, 12),
+      child: Text(
+        '历史记录',
+        style: TextStyle(
+          fontSize: 24,
+          fontWeight: FontWeight.w700,
+          color: AppColors.textPrimary,
+        ),
       ),
     );
   }
@@ -344,14 +351,7 @@ class _HomePageState extends ConsumerState<HomePage>
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             IconButton(
-              onPressed: () {
-                final isOpen = ref.read(homeProvider).isHistoryOpen;
-                if (isOpen) {
-                  ref.read(homeProvider.notifier).closeHistory();
-                } else {
-                  ref.read(homeProvider.notifier).openHistory();
-                }
-              },
+              onPressed: _toggleHistory,
               icon: Icon(Icons.menu, color: AppColors.textTertiary, size: 18),
             ),
             IconButton(
@@ -467,14 +467,24 @@ class _HomePageState extends ConsumerState<HomePage>
               ),
             ),
 
-            // 相册瀑布流 — 从底部滑入/滑出
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 450),
-              curve: Curves.easeInOutCubic,
+            // 相册瀑布流 — 使用 Slide 动画，不受键盘高度变化影响
+            Positioned(
               left: 0, right: 0,
-              top: isGalleryOpen ? topPadding + 236 : availableHeight,
+              top: topPadding + 236,
               bottom: 0,
-              child: GalleryPickerSheet(compact: true, active: isGalleryOpen),
+              child: AnimatedSlide(
+                duration: const Duration(milliseconds: 450),
+                curve: Curves.easeInOutCubic,
+                offset: isGalleryOpen ? Offset.zero : const Offset(0, 1.0),
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 250),
+                  opacity: isGalleryOpen ? 1.0 : 0.0,
+                  child: IgnorePointer(
+                    ignoring: !isGalleryOpen,
+                    child: GalleryPickerSheet(compact: true, active: isGalleryOpen),
+                  ),
+                ),
+              ),
             ),
           ],
         );

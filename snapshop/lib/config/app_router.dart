@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'route_observer.dart';
 import '../features/home/home_page.dart';
-import '../features/camera/camera_page.dart';
 import '../features/recognition/recognition_page.dart';
 import '../features/settings/settings_page.dart';
 
@@ -15,10 +14,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/',
         builder: (context, state) => const HomePage(),
-      ),
-      GoRoute(
-        path: '/camera',
-        builder: (context, state) => const CameraPage(),
       ),
       GoRoute(
         path: '/results',

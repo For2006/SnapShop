@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../config/app_colors.dart';
+import '../../core/utils/system_camera.dart';
 import 'home_provider.dart';
 
 class MainSearchBar extends ConsumerStatefulWidget {
@@ -106,9 +107,13 @@ class _MainSearchBarState extends ConsumerState<MainSearchBar> {
           else
             _buildIconButton(
               icon: Icons.camera_alt_outlined,
-              onTap: () {
+              onTap: () async {
                 FocusScope.of(context).unfocus();
-                context.push('/camera');
+                final path = await SystemCamera.takePicture();
+                if (path != null && mounted) {
+                  ref.read(homeProvider.notifier).startRecognition();
+                  context.push('/results', extra: path);
+                }
               },
             ),
           Expanded(

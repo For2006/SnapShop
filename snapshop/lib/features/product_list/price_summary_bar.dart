@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
+import '../../config/theme_context.dart';
 import '../../config/l10n/app_localizations.dart';
 import '../../core/mock_data.dart';
 
@@ -19,9 +20,9 @@ class PriceSummaryBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.white.withValues(alpha: 0.9),
+        color: context.colors.surface.withValues(alpha: 0.9),
         border: Border(
-          bottom: BorderSide(color: AppColors.cardBg),
+          bottom: BorderSide(color: context.colors.cardBg),
         ),
       ),
       child: Row(
@@ -31,24 +32,24 @@ class PriceSummaryBar extends StatelessWidget {
             children: [
               Text(
                 l10n.priceAllPlatforms,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: AppColors.textSecondary,
+                style: TextStyle(
+                  fontSize: context.fs(14),
+                  color: context.colors.textSecondary,
                 ),
               ),
               Text(
                 '${products.length}',
-                style: const TextStyle(
-                  fontSize: 14,
+                style: TextStyle(
+                  fontSize: context.fs(14),
                   fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+                  color: context.colors.textPrimary,
                 ),
               ),
               Text(
                 l10n.priceItemsFound,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: AppColors.textSecondary,
+                style: TextStyle(
+                  fontSize: context.fs(14),
+                  color: context.colors.textSecondary,
                 ),
               ),
             ],
@@ -57,7 +58,7 @@ class PriceSummaryBar extends StatelessWidget {
             children: [
               _buildPriceLabel(l10n.priceLowest, '\u00a5${minPrice.toStringAsFixed(0)}', AppColors.priceRed),
               const SizedBox(width: 16),
-              _buildPriceLabel(l10n.priceAverage, '\u00a5${avgPrice.round()}', AppColors.textSecondary),
+              _buildPriceLabel(l10n.priceAverage, '\u00a5${avgPrice.round()}', context.colors.textSecondary),
             ],
           ),
         ],
@@ -66,26 +67,30 @@ class PriceSummaryBar extends StatelessWidget {
   }
 
   Widget _buildPriceLabel(String label, String price, Color priceColor) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 11,
-            color: AppColors.textTertiary,
-          ),
-        ),
-        const SizedBox(height: 1),
-        Text(
-          price,
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: priceColor,
-          ),
-        ),
-      ],
+    return Builder(
+      builder: (context) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: context.fs(11),
+                color: context.colors.textTertiary,
+              ),
+            ),
+            const SizedBox(height: 1),
+            Text(
+              price,
+              style: TextStyle(
+                fontSize: context.fs(15),
+                fontWeight: FontWeight.w600,
+                color: priceColor,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

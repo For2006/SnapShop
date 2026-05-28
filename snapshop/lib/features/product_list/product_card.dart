@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
+import '../../config/theme_context.dart';
 import '../../config/l10n/app_localizations.dart';
 import '../../core/mock_data.dart';
 import '../../shared/widgets/platform_badge.dart';
@@ -21,9 +22,9 @@ class ProductCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.cardBg,
+          color: context.colors.cardBg,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: context.colors.border),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -38,7 +39,7 @@ class ProductCard extends StatelessWidget {
                     fit: BoxFit.cover,
                     width: double.infinity,
                     errorBuilder: (_, __, ___) => Container(
-                      color: AppColors.cardBg,
+                      color: context.colors.cardBg,
                     ),
                   ),
                 ),
@@ -58,9 +59,9 @@ class ProductCard extends StatelessWidget {
                     product.name,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textPrimary,
+                    style: TextStyle(
+                      fontSize: context.fs(12),
+                      color: context.colors.textPrimary,
                       height: 1.3,
                     ),
                   ),
@@ -79,8 +80,8 @@ class ProductCard extends StatelessWidget {
                           ),
                           child: Text(
                             tag,
-                            style: const TextStyle(
-                              fontSize: 9,
+                            style: TextStyle(
+                              fontSize: context.fs(9),
                               color: AppColors.priceRed,
                             ),
                           ),
@@ -95,18 +96,18 @@ class ProductCard extends StatelessWidget {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          const Text(
+                          Text(
                             '\u00a5',
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: context.fs(11),
                               fontWeight: FontWeight.w700,
                               color: AppColors.priceRed,
                             ),
                           ),
                           Text(
                             '${product.price}',
-                            style: const TextStyle(
-                              fontSize: 20,
+                            style: TextStyle(
+                              fontSize: context.fs(20),
                               fontWeight: FontWeight.w700,
                               color: AppColors.priceRed,
                               height: 1,
@@ -116,9 +117,9 @@ class ProductCard extends StatelessWidget {
                       ),
                       Text(
                         l10n.formatSalesCount(product.salesCount),
-                        style: const TextStyle(
-                          fontSize: 9,
-                          color: AppColors.textTertiary,
+                        style: TextStyle(
+                          fontSize: context.fs(9),
+                          color: context.colors.textTertiary,
                         ),
                       ),
                     ],

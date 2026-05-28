@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../config/app_colors.dart';
+import '../../config/theme_context.dart';
 import '../../config/l10n/app_localizations.dart';
 import '../../shared/widgets/search_history_section.dart';
 import '../../shared/widgets/browse_history_section.dart';
@@ -11,7 +11,7 @@ class HistoryPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.primaryBg,
+      backgroundColor: context.colors.primaryBg,
       body: SafeArea(
         child: Column(
           children: [
@@ -48,10 +48,10 @@ class HistoryPage extends StatelessWidget {
         children: [
           Text(
             AppLocalizations.of(context).historyTitle,
-            style: const TextStyle(
-              fontSize: 24,
+            style: TextStyle(
+              fontSize: context.fs(24),
               fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
+              color: context.colors.textPrimary,
             ),
           ),
           GestureDetector(
@@ -60,10 +60,10 @@ class HistoryPage extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: AppColors.cardBg,
+                color: context.colors.cardBg,
                 borderRadius: BorderRadius.circular(18),
               ),
-              child: Icon(Icons.close, size: 20, color: AppColors.textSecondary),
+              child: Icon(Icons.close, size: 20, color: context.colors.textSecondary),
             ),
           ),
         ],

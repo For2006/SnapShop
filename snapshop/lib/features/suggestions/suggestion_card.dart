@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
+import '../../config/theme_context.dart';
 import '../../core/mock_data.dart';
 
 class SuggestionCard extends StatelessWidget {
@@ -36,10 +37,10 @@ class SuggestionCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isPrimary ? const Color(0xFFFFF7ED) : AppColors.white,
+          color: isPrimary ? const Color(0xFFFFF7ED) : context.colors.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isPrimary ? const Color(0xFFFED7AA) : AppColors.divider,
+            color: isPrimary ? const Color(0xFFFED7AA) : context.colors.divider,
           ),
         ),
         child: Row(
@@ -48,15 +49,15 @@ class SuggestionCard extends StatelessWidget {
             Icon(
               getIcon(),
               size: 16,
-              color: isPrimary ? AppColors.brandBlue : AppColors.textSecondary,
+              color: isPrimary ? AppColors.brandBlue : context.colors.textSecondary,
             ),
             const SizedBox(width: 6),
             Text(
               suggestion.title,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: context.fs(13),
                 fontWeight: FontWeight.w500,
-                color: isPrimary ? AppColors.brandBlue : AppColors.textSecondary,
+                color: isPrimary ? AppColors.brandBlue : context.colors.textSecondary,
               ),
             ),
           ],

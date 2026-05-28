@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../config/app_colors.dart';
 import '../../config/l10n/app_localizations.dart';
+import '../../config/theme_context.dart';
 import '../../core/utils/system_camera.dart';
 import 'home_provider.dart';
 
@@ -78,11 +79,11 @@ class _MainSearchBarState extends ConsumerState<MainSearchBar> {
 
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.cardBg,
+        color: context.colors.cardBg,
         borderRadius: BorderRadius.circular(32),
         border: Border(
           top: BorderSide(
-            color: AppColors.divider,
+            color: context.colors.divider,
             width: 0.5,
           ),
         ),
@@ -128,10 +129,10 @@ class _MainSearchBarState extends ConsumerState<MainSearchBar> {
                     child: TextField(
                       controller: _textController,
                       onSubmitted: (_) => onSearchTap(),
-                      style: const TextStyle(fontSize: 15, color: AppColors.textPrimary),
+                      style: TextStyle(fontSize: context.fs(15), color: context.colors.textPrimary),
                       decoration: InputDecoration(
                         hintText: l10n.searchPlaceholder,
-                        hintStyle: const TextStyle(color: AppColors.textTertiary, fontSize: 15),
+                        hintStyle: TextStyle(color: context.colors.textTertiary, fontSize: context.fs(15)),
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
                         focusedBorder: InputBorder.none,
@@ -153,7 +154,7 @@ class _MainSearchBarState extends ConsumerState<MainSearchBar> {
                           )
                         : Icon(
                             _hasText ? Icons.arrow_upward : Icons.search,
-                            color: _hasText ? AppColors.brandBlueLight : AppColors.textTertiary,
+                            color: _hasText ? AppColors.brandBlueLight : context.colors.textTertiary,
                             size: 22,
                           ),
                   ),
@@ -184,10 +185,10 @@ class _MainSearchBarState extends ConsumerState<MainSearchBar> {
           width: 46,
           height: 46,
           decoration: BoxDecoration(
-            color: AppColors.secondaryBg,
+            color: context.colors.secondaryBg,
             borderRadius: BorderRadius.circular(24),
           ),
-          child: Icon(icon, color: AppColors.textSecondary, size: 22),
+          child: Icon(icon, color: context.colors.textSecondary, size: 22),
         ),
       ),
     );

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:photo_manager/photo_manager.dart';
 import '../../config/app_colors.dart';
+import '../../config/theme_context.dart';
 import '../../config/l10n/app_localizations.dart';
 import 'home_provider.dart';
 
@@ -149,7 +150,7 @@ class _GalleryPickerSheetState extends ConsumerState<GalleryPickerSheet>
   Widget build(BuildContext context) {
     if (widget.compact) {
       return Container(
-        color: AppColors.primaryBg,
+        color: context.colors.primaryBg,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: _buildBody(context),
@@ -167,7 +168,7 @@ class _GalleryPickerSheetState extends ConsumerState<GalleryPickerSheet>
         Expanded(
           flex: 2,
           child: Container(
-            color: AppColors.primaryBg,
+            color: context.colors.primaryBg,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: _buildBody(context),
@@ -192,12 +193,12 @@ class _GalleryPickerSheetState extends ConsumerState<GalleryPickerSheet>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.photo_library_outlined,
-                size: 48, color: AppColors.textSecondary),
+            Icon(Icons.photo_library_outlined,
+                size: 48, color: context.colors.textSecondary),
             const SizedBox(height: 12),
             Text(
               l10n.galleryPermissionTitle,
-              style: TextStyle(color: AppColors.textSecondary),
+              style: TextStyle(color: context.colors.textSecondary),
             ),
             const SizedBox(height: 8),
             TextButton(
@@ -224,11 +225,11 @@ class _GalleryPickerSheetState extends ConsumerState<GalleryPickerSheet>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.photo_outlined,
-                size: 48, color: AppColors.textSecondary),
+                size: 48, color: context.colors.textSecondary),
             SizedBox(height: 12),
             Text(
               l10n.galleryEmpty,
-              style: TextStyle(color: AppColors.textSecondary),
+              style: TextStyle(color: context.colors.textSecondary),
             ),
           ],
         ),
@@ -268,10 +269,10 @@ class _GalleryPickerSheetState extends ConsumerState<GalleryPickerSheet>
         borderRadius: BorderRadius.circular(8),
         child: Container(
           decoration: BoxDecoration(
-            color: AppColors.cardBg,
+            color: context.colors.cardBg,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: AppColors.divider,
+              color: context.colors.divider,
               width: 1.5,
               strokeAlign: BorderSide.strokeAlignInside,
             ),
@@ -287,10 +288,10 @@ class _GalleryPickerSheetState extends ConsumerState<GalleryPickerSheet>
               const SizedBox(height: 6),
               Text(
                 l10n.galleryTitle,
-                style: const TextStyle(
-                  fontSize: 12,
+                style: TextStyle(
+                  fontSize: context.fs(12),
                   fontWeight: FontWeight.w500,
-                  color: AppColors.textSecondary,
+                  color: context.colors.textSecondary,
                 ),
               ),
             ],
@@ -322,8 +323,8 @@ class _GalleryPickerSheetState extends ConsumerState<GalleryPickerSheet>
                 height: double.infinity,
               )
             : Container(
-                color: AppColors.cardBg,
-                child: const Icon(Icons.photo, color: AppColors.textSecondary),
+                color: context.colors.cardBg,
+                child: Icon(Icons.photo, color: context.colors.textSecondary),
               ),
       ),
     );

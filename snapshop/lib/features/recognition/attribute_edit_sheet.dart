@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
+import '../../config/theme_context.dart';
 import '../../config/l10n/app_localizations.dart';
 import '../../core/mock_data.dart';
 
@@ -47,7 +48,7 @@ class _AttributeEditSheetState extends State<AttributeEditSheet> {
             width: 48,
             height: 6,
             decoration: BoxDecoration(
-              color: AppColors.divider,
+              color: context.colors.divider,
               borderRadius: BorderRadius.circular(3),
             ),
           ),
@@ -58,10 +59,10 @@ class _AttributeEditSheetState extends State<AttributeEditSheet> {
               children: [
                 Text(
                   l10n.attributeEditTitle,
-                  style: const TextStyle(
-                    fontSize: 20,
+                  style: TextStyle(
+                    fontSize: context.fs(20),
                     fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
+                    color: context.colors.textPrimary,
                   ),
                 ),
                 GestureDetector(
@@ -70,10 +71,10 @@ class _AttributeEditSheetState extends State<AttributeEditSheet> {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: AppColors.secondaryBg,
+                      color: context.colors.secondaryBg,
                       borderRadius: BorderRadius.circular(18),
                     ),
-                    child: Icon(Icons.close, size: 20, color: AppColors.textSecondary),
+                    child: Icon(Icons.close, size: 20, color: context.colors.textSecondary),
                   ),
                 ),
               ],
@@ -87,10 +88,10 @@ class _AttributeEditSheetState extends State<AttributeEditSheet> {
               children: [
                 Text(
                   widget.attribute.label,
-                  style: const TextStyle(
-                    fontSize: 14,
+                  style: TextStyle(
+                    fontSize: context.fs(14),
                     fontWeight: FontWeight.w500,
-                    color: AppColors.textSecondary,
+                    color: context.colors.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -100,14 +101,14 @@ class _AttributeEditSheetState extends State<AttributeEditSheet> {
                   decoration: InputDecoration(
                     hintText: l10n.pleaseEnter(widget.attribute.label),
                     filled: true,
-                    fillColor: AppColors.secondaryBg,
+                    fillColor: context.colors.secondaryBg,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide(color: AppColors.divider),
+                      borderSide: BorderSide(color: context.colors.divider),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide(color: AppColors.divider),
+                      borderSide: BorderSide(color: context.colors.divider),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
@@ -132,8 +133,8 @@ class _AttributeEditSheetState extends State<AttributeEditSheet> {
                       Expanded(
                         child: Text(
                           l10n.attributeEditTip,
-                          style: const TextStyle(
-                            fontSize: 12,
+                          style: TextStyle(
+                            fontSize: context.fs(12),
                             color: AppColors.warningAmber,
                           ),
                         ),
@@ -152,8 +153,8 @@ class _AttributeEditSheetState extends State<AttributeEditSheet> {
                       }
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.textPrimary,
-                      foregroundColor: Colors.white,
+                      backgroundColor: context.colors.textPrimary,
+                      foregroundColor: context.colors.surface,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(28),
@@ -162,7 +163,7 @@ class _AttributeEditSheetState extends State<AttributeEditSheet> {
                     ),
                     child: Text(
                       l10n.attributeEditConfirm,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      style: TextStyle(fontSize: context.fs(16), fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),

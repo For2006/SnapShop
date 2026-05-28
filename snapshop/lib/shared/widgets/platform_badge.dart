@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
+import '../../config/theme_context.dart';
 
 class PlatformBadge extends StatelessWidget {
   final String platform;
@@ -12,7 +13,7 @@ class PlatformBadge extends StatelessWidget {
       'taobao' => (AppColors.taobaoOrange, '淘宝'),
       'jd' => (AppColors.jdRed, '京东'),
       'pdd' => (AppColors.pddRed, '拼多多'),
-      _ => (AppColors.textTertiary, platform),
+      _ => (context.colors.textTertiary, platform),
     };
 
     return Container(
@@ -23,9 +24,9 @@ class PlatformBadge extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 9,
+        style: TextStyle(
+          color: context.colors.surface,
+          fontSize: context.fs(9),
           fontWeight: FontWeight.w700,
         ),
       ),

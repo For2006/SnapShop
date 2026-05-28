@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../config/app_colors.dart';
 import '../../config/l10n/app_localizations.dart';
+import '../../config/theme_context.dart';
 import '../../config/route_observer.dart';
 import '../../shared/widgets/search_history_section.dart';
 import '../../shared/widgets/browse_history_section.dart';
@@ -158,7 +159,7 @@ class _HomePageState extends ConsumerState<HomePage>
         }
       },
       child: Scaffold(
-        backgroundColor: AppColors.primaryBg,
+        backgroundColor: context.colors.primaryBg,
         resizeToAvoidBottomInset: false,
         body: Stack(
           fit: StackFit.expand,
@@ -210,7 +211,7 @@ class _HomePageState extends ConsumerState<HomePage>
                     offset: Offset(offset, 0),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: AppColors.primaryBg,
+                        color: context.colors.primaryBg,
                         borderRadius: radius > 0 ? BorderRadius.circular(radius) : null,
                         boxShadow: shadowOpacity > 0
                             ? [
@@ -294,10 +295,10 @@ class _HomePageState extends ConsumerState<HomePage>
       padding: const EdgeInsets.fromLTRB(20, 14, 16, 12),
       child: Text(
         l10n.historyTitle,
-        style: const TextStyle(
-          fontSize: 24,
+        style: TextStyle(
+          fontSize: context.fs(24),
           fontWeight: FontWeight.w700,
-          color: AppColors.textPrimary,
+          color: context.colors.textPrimary,
         ),
       ),
     );
@@ -321,7 +322,7 @@ class _HomePageState extends ConsumerState<HomePage>
                 child: Text(
                   'SnapShop',
                   style: TextStyle(
-                    fontSize: 56,
+                    fontSize: context.fs(56),
                     fontWeight: FontWeight.w900,
                     color: Colors.white,
                     letterSpacing: -1,
@@ -331,9 +332,9 @@ class _HomePageState extends ConsumerState<HomePage>
               const SizedBox(height: 12),
               Text(
                 l10n.homeSlogan,
-                style: const TextStyle(
-                  color: AppColors.textTertiary,
-                  fontSize: 14,
+                style: TextStyle(
+                  color: context.colors.textTertiary,
+                  fontSize: context.fs(14),
                   fontWeight: FontWeight.w500,
                   letterSpacing: 2,
                 ),
@@ -365,11 +366,11 @@ class _HomePageState extends ConsumerState<HomePage>
           children: [
             IconButton(
               onPressed: _toggleHistory,
-              icon: Icon(Icons.menu, color: AppColors.textTertiary, size: 18),
+              icon: Icon(Icons.menu, color: context.colors.textTertiary, size: 18),
             ),
             IconButton(
               onPressed: () => context.push('/settings'),
-              icon: Icon(Icons.settings_outlined, color: AppColors.textTertiary, size: 18),
+              icon: Icon(Icons.settings_outlined, color: context.colors.textTertiary, size: 18),
             ),
           ],
         ),

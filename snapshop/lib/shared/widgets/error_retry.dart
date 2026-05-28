@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
 import '../../config/l10n/app_localizations.dart';
+import '../../config/theme_context.dart';
 
 class ErrorRetry extends StatelessWidget {
   final String message;
@@ -19,11 +20,11 @@ class ErrorRetry extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.error_outline, size: 48, color: AppColors.textTertiary),
+          Icon(Icons.error_outline, size: 48, color: context.colors.textTertiary),
           const SizedBox(height: 16),
           Text(
             message,
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+            style: TextStyle(color: context.colors.textSecondary, fontSize: context.fs(14)),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),

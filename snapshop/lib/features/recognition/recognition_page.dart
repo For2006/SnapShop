@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../config/app_colors.dart';
+import '../../config/theme_context.dart';
 import '../../config/l10n/app_localizations.dart';
 import '../../core/mock_data.dart';
 import '../../shared/widgets/loading_indicator.dart';
@@ -39,8 +39,8 @@ class _RecognitionPageState extends ConsumerState<RecognitionPage> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: AppColors.white,
+        decoration: BoxDecoration(
+          color: context.colors.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
         child: AttributeEditSheet(
@@ -110,7 +110,7 @@ class _RecognitionPageState extends ConsumerState<RecognitionPage> {
     final products = homeState.products;
 
     return Scaffold(
-      backgroundColor: AppColors.primaryBg,
+      backgroundColor: context.colors.primaryBg,
       appBar: AppBar(
         title: Text(l10n.recognitionTitle),
         leading: IconButton(
@@ -135,7 +135,7 @@ class _RecognitionPageState extends ConsumerState<RecognitionPage> {
                   child: Center(
                     child: Text(
                       l10n.recognitionEmpty,
-                      style: const TextStyle(color: AppColors.textTertiary, fontSize: 14),
+                      style: TextStyle(color: context.colors.textTertiary, fontSize: context.fs(14)),
                     ),
                   ),
                 )
@@ -175,21 +175,21 @@ class _RecognitionPageState extends ConsumerState<RecognitionPage> {
 
   Widget _buildRecognitionSection(MockRecognitionResult result) {
     return Container(
-      color: AppColors.white,
+      color: context.colors.surface,
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           RichText(
             text: TextSpan(
-              style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
+              style: TextStyle(fontSize: context.fs(14), color: context.colors.textSecondary),
               children: [
                 TextSpan(text: AppLocalizations.of(context).recognitionAiLabel),
                 TextSpan(
                   text: result.category,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
+                    color: context.colors.textPrimary,
                   ),
                 ),
               ],
@@ -213,7 +213,7 @@ class _RecognitionPageState extends ConsumerState<RecognitionPage> {
 
   Widget _buildSuggestions(MockRecognitionResult result) {
     return Container(
-      color: AppColors.white,
+      color: context.colors.surface,
       padding: const EdgeInsets.only(bottom: 12),
       child: SuggestionList(
         suggestions: result.suggestions,
@@ -224,7 +224,7 @@ class _RecognitionPageState extends ConsumerState<RecognitionPage> {
 
   Widget _buildSortSection() {
     return Container(
-      color: AppColors.white,
+      color: context.colors.surface,
       child: SortBar(
         activeSort: _activeSort,
         onSortChanged: _onSortChanged,

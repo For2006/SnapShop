@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../config/app_colors.dart';
 import '../../config/l10n/app_localizations.dart';
 
 class LoadingIndicator extends StatelessWidget {
@@ -13,9 +14,9 @@ class LoadingIndicator extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFF0F172A),
-            Color(0xFF1E293B),
-            Color(0xFF0F172A),
+            AppColors.darkBgPrimary,
+            AppColors.darkBgSecondary,
+            AppColors.darkBgPrimary,
           ],
         ),
       ),

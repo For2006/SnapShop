@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../config/app_colors.dart';
+import '../../../config/theme_context.dart';
 import '../../../core/mock_data.dart';
 
 class AttributeChip extends StatelessWidget {
@@ -37,7 +38,7 @@ class AttributeChip extends StatelessWidget {
             Text(
               '${attribute.label}: ',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: context.fs(12),
                 color: _isLowConfidence
                     ? AppColors.warningAmber
                     : AppColors.successGreen,
@@ -46,7 +47,7 @@ class AttributeChip extends StatelessWidget {
             Text(
               attribute.value,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: context.fs(12),
                 fontWeight: FontWeight.w600,
                 color: _isLowConfidence
                     ? AppColors.warningAmber

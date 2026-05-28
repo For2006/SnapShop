@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
+import '../../config/theme_context.dart';
 import '../../config/l10n/app_localizations.dart';
 
 enum SortOption {
@@ -33,9 +34,9 @@ class SortBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: context.colors.surface,
         border: Border(
-          bottom: BorderSide(color: AppColors.cardBg),
+          bottom: BorderSide(color: context.colors.cardBg),
         ),
       ),
       child: SingleChildScrollView(
@@ -50,18 +51,18 @@ class SortBar extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                   decoration: BoxDecoration(
-                    color: isActive ? AppColors.brandBlue.withValues(alpha: 0.1) : AppColors.secondaryBg,
+                    color: isActive ? AppColors.brandBlue.withValues(alpha: 0.1) : context.colors.secondaryBg,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: isActive ? AppColors.brandBlue : AppColors.divider,
+                      color: isActive ? AppColors.brandBlue : context.colors.divider,
                     ),
                   ),
                   child: Text(
                     option.label,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: context.fs(12),
                       fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                      color: isActive ? AppColors.brandBlue : AppColors.textSecondary,
+                      color: isActive ? AppColors.brandBlue : context.colors.textSecondary,
                     ),
                   ),
                 ),

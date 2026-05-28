@@ -161,7 +161,10 @@ class _MainSearchBarState extends ConsumerState<MainSearchBar> {
           if (!widget.isHistoryOpen)
             _buildIconButton(
               icon: isGalleryOpen ? Icons.close : Icons.photo_library_outlined,
-              onTap: () => ref.read(homeProvider.notifier).toggleGallery(),
+              onTap: () {
+                FocusScope.of(context).unfocus();
+                ref.read(homeProvider.notifier).toggleGallery();
+              },
             ),
         ],
       ),

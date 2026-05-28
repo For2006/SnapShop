@@ -156,6 +156,7 @@ class _HomePageState extends ConsumerState<HomePage>
       },
       child: Scaffold(
         backgroundColor: AppColors.primaryBg,
+        resizeToAvoidBottomInset: false,
         body: Stack(
           fit: StackFit.expand,
           clipBehavior: Clip.hardEdge,
@@ -196,7 +197,7 @@ class _HomePageState extends ConsumerState<HomePage>
               },
               child: AnimatedBuilder(
                 animation: _drawerController,
-                child: _buildCardBody(context, isGalleryOpen),
+                child: _buildCardBody(context, isGalleryOpen, isHistoryOpen),
                 builder: (context, child) {
                   final v = _drawerController.value;
                   final offset = 305 * v;
@@ -300,44 +301,51 @@ class _HomePageState extends ConsumerState<HomePage>
 
 
 
-  Widget _buildBrandSection(bool isGalleryOpen) {
-    final isHistoryOpen = ref.watch(homeProvider).isHistoryOpen;
-    return AnimatedOpacity(
-      opacity: isHistoryOpen ? 0 : 1,
-      duration: const Duration(milliseconds: 200),
-      child: Align(
-        alignment: Alignment(0, -0.35),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ShaderMask(
-              shaderCallback: LinearGradient(
-                colors: [AppColors.brandBlue, AppColors.brandPurple],
-              ).createShader,
-              child: const Text(
-                'SnapShop',
-                style: TextStyle(
-                  fontSize: 56,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                  letterSpacing: -1,
+  Widget _buildBrandSection(bool isGalleryOpen, bool isHistoryOpen) {
+    return RepaintBoundary(
+      child: AnimatedOpacity(
+        opacity: isHistoryOpen ? 0 : 1,
+        duration: const Duration(milliseconds: 200),
+        child: Align(
+          alignment: Alignment(0, -0.35),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ShaderMask(
+                shaderCallback: _brandGradient,
+                child: Text(
+                  'SnapShop',
+                  style: TextStyle(
+                    fontSize: 56,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    letterSpacing: -1,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              '拍照识物 · 智能比价',
-              style: TextStyle(
-                color: AppColors.textTertiary,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                letterSpacing: 2,
+              const SizedBox(height: 12),
+              const Text(
+                '拍照识物 · 智能比价',
+                style: TextStyle(
+                  color: AppColors.textTertiary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 2,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  static const _gradient = LinearGradient(
+    colors: [AppColors.brandBlue, AppColors.brandPurple],
+  );
+
+  static Shader _brandGradient(Rect bounds) {
+    return _gradient.createShader(bounds);
   }
 
   Widget _buildTopButtons(BuildContext context) {
@@ -364,131 +372,117 @@ class _HomePageState extends ConsumerState<HomePage>
     );
   }
 
-  Widget _buildCardBody(BuildContext context, bool isGalleryOpen) {
+  Widget _buildCardBody(BuildContext context, bool isGalleryOpen, bool isHistoryOpen) {
     final topPadding = MediaQuery.of(context).padding.top;
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
     final screenHeight = MediaQuery.of(context).size.height;
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final availableHeight = constraints.maxHeight;
-        // Scaffold 的 resizeToAvoidBottomInset 会移除 body 的 viewInsets，
-        // 改用实际约束高度与全屏高度对比来检测键盘
-        final fullBodyHeight = screenHeight - topPadding - bottomPadding;
-        final isKeyboardVisible = availableHeight < fullBodyHeight - 80;
-
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            // 进场光晕效果 — 品牌背景渐变脉冲
-            Positioned(
-              left: 0, right: 0,
-              top: 0,
-              height: screenHeight * 0.45,
-              child: AnimatedBuilder(
-                animation: _brandAnim,
-                builder: (context, _) {
-                  final fadeIn = (0.35 * (1.0 - _brandAnim.value.clamp(0.0, 1.0))).clamp(0.0, 0.35);
-                  return Container(
-                    decoration: BoxDecoration(
-                      gradient: RadialGradient(
-                        center: const Alignment(0, -0.2),
-                        radius: 0.9,
-                        colors: [
-                          AppColors.brandBlue.withValues(alpha: 0.3 * fadeIn),
-                          AppColors.brandPurple.withValues(alpha: 0.12 * fadeIn),
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-
-            // 顶部按钮
-            _buildTopButtons(context),
-
-            // Logo — 普通模式居中，相册模式抬升到顶部
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 350),
-              curve: Curves.easeOutCubic,
-              left: 0, right: 0,
-              top: isGalleryOpen ? topPadding + 56 : screenHeight * 0.22,
-              child: AnimatedBuilder(
-                animation: _brandAnim,
-                builder: (context, child) {
-                  return Opacity(
-                    opacity: _brandAnim.value.clamp(0.0, 1.0),
-                    child: Transform.translate(
-                      offset: Offset(0, 50 * (1.0 - _brandAnim.value)),
-                      child: Transform.scale(
-                        scale: 0.92 + 0.08 * _brandAnim.value,
-                        child: child,
-                      ),
-                    ),
-                  );
-                },
-                child: _buildBrandSection(isGalleryOpen),
-              ),
-            ),
-
-            // 搜索栏 — 普通模式在底部（跟随键盘），相册模式在 logo 下方
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 450),
-              curve: Curves.easeOutCubic,
-              left: 16, right: 16,
-              top: isGalleryOpen
-                  ? topPadding + 172
-                  : isKeyboardVisible
-                      ? availableHeight - 60  // 键盘弹起时留一点间隙
-                      : availableHeight - 108, // 默认位置
-              child: AnimatedBuilder(
-                animation: _entranceController,
-                builder: (context, child) {
-                  final t = _entranceController.value;
-                  // easeOutBack: 从上方加速落下，到目标后有轻微回弹
-                  final v = t - 1;
-                  final eased = 1.0 + 2.70158 * v * v * v + 1.70158 * v * v;
-                  final dropOffset = 240.0 * (1.0 - eased);
-                  return Transform.translate(
-                    offset: Offset(0, dropOffset),
-                    child: Opacity(
-                      opacity: t.clamp(0.0, 1.0),
-                      child: child,
-                    ),
-                  );
-                },
-                child: MainSearchBar(
-                  key: ValueKey('search_$_homeRefreshKey'),
-                  isGalleryOpen: isGalleryOpen,
-                  isHistoryOpen: false,
-                ),
-              ),
-            ),
-
-            // 相册瀑布流 — 使用 Slide 动画，不受键盘高度变化影响
-            Positioned(
-              left: 0, right: 0,
-              top: topPadding + 236,
-              bottom: 0,
-              child: AnimatedSlide(
-                duration: const Duration(milliseconds: 450),
-                curve: Curves.easeInOutCubic,
-                offset: isGalleryOpen ? Offset.zero : const Offset(0, 1.0),
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 250),
-                  opacity: isGalleryOpen ? 1.0 : 0.0,
-                  child: IgnorePointer(
-                    ignoring: !isGalleryOpen,
-                    child: GalleryPickerSheet(compact: true, active: isGalleryOpen),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // 进场光晕效果 — 品牌背景渐变脉冲
+        Positioned(
+          left: 0, right: 0,
+          top: 0,
+          height: screenHeight * 0.45,
+          child: AnimatedBuilder(
+            animation: _brandAnim,
+            builder: (context, _) {
+              final fadeIn = (0.35 * (1.0 - _brandAnim.value.clamp(0.0, 1.0))).clamp(0.0, 0.35);
+              return Container(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: const Alignment(0, -0.2),
+                    radius: 0.9,
+                    colors: [
+                      AppColors.brandBlue.withValues(alpha: 0.3 * fadeIn),
+                      AppColors.brandPurple.withValues(alpha: 0.12 * fadeIn),
+                      Colors.transparent,
+                    ],
                   ),
                 ),
+              );
+            },
+          ),
+        ),
+
+        // 顶部按钮
+        _buildTopButtons(context),
+
+        // Logo — 普通模式居中，相册模式抬升到顶部
+        AnimatedPositioned(
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeOutCubic,
+          left: 0, right: 0,
+          top: isGalleryOpen ? topPadding + 56 : screenHeight * 0.22,
+          child: AnimatedBuilder(
+            animation: _brandAnim,
+            builder: (context, child) {
+              return Opacity(
+                opacity: _brandAnim.value.clamp(0.0, 1.0),
+                child: Transform.translate(
+                  offset: Offset(0, 50 * (1.0 - _brandAnim.value)),
+                  child: Transform.scale(
+                    scale: 0.92 + 0.08 * _brandAnim.value,
+                    child: child,
+                  ),
+                ),
+              );
+            },
+            child: _buildBrandSection(isGalleryOpen, isHistoryOpen),
+          ),
+        ),
+
+        // 搜索栏 — bottom 由 viewInsets 驱动，与键盘动画同步
+        AnimatedPositioned(
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeOutCubic,
+          left: 16, right: 16,
+          top: isGalleryOpen ? topPadding + 172 : null,
+          bottom: isGalleryOpen ? null : keyboardHeight + (keyboardHeight > 0 ? 12 : 48),
+          child: AnimatedBuilder(
+            animation: _entranceController,
+            builder: (context, child) {
+              final t = _entranceController.value;
+              final v = t - 1;
+              final eased = 1.0 + 2.70158 * v * v * v + 1.70158 * v * v;
+              final dropOffset = 240.0 * (1.0 - eased);
+              return Transform.translate(
+                offset: Offset(0, dropOffset),
+                child: Opacity(
+                  opacity: t.clamp(0.0, 1.0),
+                  child: child,
+                ),
+              );
+            },
+            child: MainSearchBar(
+              key: ValueKey('search_$_homeRefreshKey'),
+              isGalleryOpen: isGalleryOpen,
+              isHistoryOpen: false,
+            ),
+          ),
+        ),
+
+        // 相册瀑布流 — 使用 Slide 动画，不受键盘高度变化影响
+        Positioned(
+          left: 0, right: 0,
+          top: topPadding + 236,
+          bottom: 0,
+          child: AnimatedSlide(
+            duration: const Duration(milliseconds: 450),
+            curve: Curves.easeInOutCubic,
+            offset: isGalleryOpen ? Offset.zero : const Offset(0, 1.0),
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 250),
+              opacity: isGalleryOpen ? 1.0 : 0.0,
+              child: IgnorePointer(
+                ignoring: !isGalleryOpen,
+                child: GalleryPickerSheet(compact: true, active: isGalleryOpen),
               ),
             ),
-          ],
-        );
-      },
+          ),
+        ),
+      ],
     );
   }
 }

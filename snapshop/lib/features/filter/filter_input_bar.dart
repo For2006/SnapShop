@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
+import '../../config/l10n/app_localizations.dart';
 
 class FilterInputBar extends StatelessWidget {
   final TextEditingController controller;
@@ -15,6 +16,7 @@ class FilterInputBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
@@ -48,8 +50,8 @@ class FilterInputBar extends StatelessWidget {
               controller: controller,
               onSubmitted: (value) => onSubmit(value),
               style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
-              decoration: const InputDecoration(
-                hintText: '自然语言筛选，如「500元以内自营」',
+              decoration: InputDecoration(
+                hintText: l10n.filterPlaceholder,
                 hintStyle: TextStyle(color: AppColors.textTertiary, fontSize: 13),
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,

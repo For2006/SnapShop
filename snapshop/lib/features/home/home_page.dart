@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../config/app_colors.dart';
+import '../../config/l10n/app_localizations.dart';
 import '../../config/route_observer.dart';
 import '../../shared/widgets/search_history_section.dart';
 import '../../shared/widgets/browse_history_section.dart';
@@ -288,11 +289,12 @@ class _HomePageState extends ConsumerState<HomePage>
   }
 
   Widget _buildHistoryHeader(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.fromLTRB(20, 14, 16, 12),
+    final l10n = AppLocalizations.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 16, 12),
       child: Text(
-        '历史记录',
-        style: TextStyle(
+        l10n.historyTitle,
+        style: const TextStyle(
           fontSize: 24,
           fontWeight: FontWeight.w700,
           color: AppColors.textPrimary,
@@ -303,7 +305,8 @@ class _HomePageState extends ConsumerState<HomePage>
 
 
 
-  Widget _buildBrandSection(bool isGalleryOpen, bool isHistoryOpen) {
+  Widget _buildBrandSection(BuildContext context, bool isGalleryOpen, bool isHistoryOpen) {
+    final l10n = AppLocalizations.of(context);
     return RepaintBoundary(
       child: AnimatedOpacity(
         opacity: isHistoryOpen ? 0 : 1,
@@ -326,9 +329,9 @@ class _HomePageState extends ConsumerState<HomePage>
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
-                '拍照识物 · 智能比价',
-                style: TextStyle(
+              Text(
+                l10n.homeSlogan,
+                style: const TextStyle(
                   color: AppColors.textTertiary,
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
@@ -431,7 +434,7 @@ class _HomePageState extends ConsumerState<HomePage>
                 ),
               );
             },
-            child: _buildBrandSection(isGalleryOpen, isHistoryOpen),
+            child: _buildBrandSection(context, isGalleryOpen, isHistoryOpen),
           ),
         ),
 

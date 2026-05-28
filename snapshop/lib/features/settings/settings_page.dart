@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../config/app_colors.dart';
+import '../../config/l10n/app_localizations.dart';
+import 'settings_provider.dart';
 
-class SettingsPage extends StatefulWidget {
+class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
 
   @override
-  State<SettingsPage> createState() => _SettingsPageState();
+  ConsumerState<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage>
+class _SettingsPageState extends ConsumerState<SettingsPage>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  late final Animation<double> _fadeAnim;
   late final Animation<double> _profileAnim;
   late final Animation<double> _sectionsAnim;
 
@@ -25,10 +27,6 @@ class _SettingsPageState extends State<SettingsPage>
       duration: const Duration(milliseconds: 600),
     );
 
-    _fadeAnim = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOut,
-    );
     _profileAnim = CurvedAnimation(
       parent: _controller,
       curve: const Interval(0.05, 0.45, curve: Curves.easeOutCubic),
@@ -47,8 +45,89 @@ class _SettingsPageState extends State<SettingsPage>
     super.dispose();
   }
 
+  void _showLanguagePicker() {
+    final l10n = AppLocalizations.of(context);
+    final currentLocale = ref.read(settingsProvider).localeOption;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.only(bottom: 34),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.textTertiary.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+              child: Text(
+                l10n.settingsLanguage,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+            ...LocaleOption.values.map((option) {
+              final isSelected = option == currentLocale;
+              return InkWell(
+                onTap: () {
+                  ref.read(settingsProvider.notifier).setLocale(option);
+                  Navigator.pop(ctx);
+                },
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          option.displayName,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight:
+                                isSelected ? FontWeight.w600 : FontWeight.w400,
+                            color: isSelected
+                                ? AppColors.brandBlue
+                                : AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                      if (isSelected)
+                        const Icon(
+                          Icons.check_circle,
+                          size: 22,
+                          color: AppColors.brandBlue,
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final settingsState = ref.watch(settingsProvider);
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: AppColors.secondaryBg,
@@ -57,184 +136,186 @@ class _SettingsPageState extends State<SettingsPage>
       ),
       child: Scaffold(
         backgroundColor: AppColors.secondaryBg,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            // 顶部装饰渐变
-            Positioned(
-              top: -120,
-              left: -80,
-              child: Container(
-                width: 320,
-                height: 320,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      AppColors.brandBlue.withValues(alpha: 0.08),
-                      AppColors.brandPurple.withValues(alpha: 0.04),
-                      Colors.transparent,
-                    ],
+        body: SafeArea(
+          child: Stack(
+            children: [
+              Positioned(
+                top: -120,
+                left: -80,
+                child: Container(
+                  width: 320,
+                  height: 320,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        AppColors.brandBlue.withValues(alpha: 0.08),
+                        AppColors.brandPurple.withValues(alpha: 0.04),
+                        Colors.transparent,
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-            Positioned(
-              top: -40,
-              right: -100,
-              child: Container(
-                width: 260,
-                height: 260,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      AppColors.brandPurple.withValues(alpha: 0.06),
-                      AppColors.brandBlue.withValues(alpha: 0.02),
-                      Colors.transparent,
-                    ],
+              Positioned(
+                top: -40,
+                right: -100,
+                child: Container(
+                  width: 260,
+                  height: 260,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        AppColors.brandPurple.withValues(alpha: 0.06),
+                        AppColors.brandBlue.withValues(alpha: 0.02),
+                        Colors.transparent,
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
 
-            // 主内容
-            Column(
-              children: [
-                _buildHeader(context),
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.only(bottom: 40),
-                    children: [
-                      _AnimatedSlide(
-                        animation: _profileAnim,
-                        child: _buildProfileCard(),
-                      ),
-                      _AnimatedSlide(
-                        animation: _sectionsAnim,
-                        child: _buildSection(
-                          icon: Icons.account_circle_outlined,
-                          title: '账户',
-                          items: [
-                            _SettingsItem(
-                              icon: Icons.person_outline,
-                              label: '个人信息',
-                              subtitle: '头像、昵称、简介',
-                              onTap: () {},
-                            ),
-                            _SettingsItem(
-                              icon: Icons.shield_outlined,
-                              label: '账号安全',
-                              subtitle: '密码、绑定手机',
-                              onTap: () {},
-                            ),
-                            _SettingsItem(
-                              icon: Icons.notifications_outlined,
-                              label: '消息通知',
-                              subtitle: '推送、提醒设置',
-                              onTap: () {},
-                            ),
-                          ],
+              Column(
+                children: [
+                  _buildHeader(context, l10n),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.only(bottom: 40),
+                      children: [
+                        _AnimatedSlide(
+                          animation: _profileAnim,
+                          child: _buildProfileCard(l10n),
                         ),
-                      ),
-                      _AnimatedSlide(
-                        animation: _sectionsAnim,
-                        child: _buildSection(
-                          icon: Icons.tune_outlined,
-                          title: '偏好',
-                          items: [
-                            _SettingsItem(
-                              icon: Icons.language,
-                              label: '语言',
-                              trailing: '简体中文',
-                              onTap: () {},
-                            ),
-                            _SettingsItem(
-                              icon: Icons.palette_outlined,
-                              label: '外观',
-                              trailing: '跟随系统',
-                              onTap: () {},
-                            ),
-                            _SettingsItem(
-                              icon: Icons.text_fields,
-                              label: '字体大小',
-                              trailing: '默认',
-                              onTap: () {},
-                            ),
-                            _SettingsItem(
-                              icon: Icons.cached_outlined,
-                              label: '清理缓存',
-                              trailing: '12.3 MB',
-                              onTap: () {},
-                            ),
-                          ],
-                        ),
-                      ),
-                      _AnimatedSlide(
-                        animation: _sectionsAnim,
-                        child: _buildSection(
-                          icon: Icons.info_outline,
-                          title: '关于',
-                          items: [
-                            _SettingsItem(
-                              icon: Icons.system_update_outlined,
-                              label: '检查更新',
-                              trailing: 'v1.0.0',
-                              onTap: () {},
-                            ),
-                            _SettingsItem(
-                              icon: Icons.description_outlined,
-                              label: '用户协议',
-                              onTap: () {},
-                            ),
-                            _SettingsItem(
-                              icon: Icons.privacy_tip_outlined,
-                              label: '隐私政策',
-                              onTap: () {},
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      _AnimatedSlide(
-                        animation: _sectionsAnim,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          child: SizedBox(
-                            width: double.infinity,
-                            height: 48,
-                            child: OutlinedButton(
-                              onPressed: () {},
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppColors.errorRed,
-                                side: BorderSide(color: AppColors.errorRed.withValues(alpha: 0.3)),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
+                        _AnimatedSlide(
+                          animation: _sectionsAnim,
+                          child: _buildSection(
+                            icon: Icons.account_circle_outlined,
+                            title: l10n.settingsAccount,
+                            items: [
+                              _SettingsItem(
+                                icon: Icons.person_outline,
+                                label: l10n.settingsPersonalInfo,
+                                subtitle: l10n.settingsPersonalInfoDesc,
+                                onTap: () {},
                               ),
-                              child: const Text(
-                                '退出登录',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
+                              _SettingsItem(
+                                icon: Icons.shield_outlined,
+                                label: l10n.settingsAccountSecurity,
+                                subtitle: l10n.settingsAccountSecurityDesc,
+                                onTap: () {},
+                              ),
+                              _SettingsItem(
+                                icon: Icons.notifications_outlined,
+                                label: l10n.settingsNotifications,
+                                subtitle: l10n.settingsNotificationsDesc,
+                                onTap: () {},
+                              ),
+                            ],
+                          ),
+                        ),
+                        _AnimatedSlide(
+                          animation: _sectionsAnim,
+                          child: _buildSection(
+                            icon: Icons.tune_outlined,
+                            title: l10n.settingsPreferences,
+                            items: [
+                              _SettingsItem(
+                                icon: Icons.language,
+                                label: l10n.settingsLanguage,
+                                trailing: settingsState.localeOption.label,
+                                onTap: _showLanguagePicker,
+                              ),
+                              _SettingsItem(
+                                icon: Icons.palette_outlined,
+                                label: l10n.settingsAppearance,
+                                trailing: l10n.settingsAppearanceValue,
+                                onTap: () {},
+                              ),
+                              _SettingsItem(
+                                icon: Icons.text_fields,
+                                label: l10n.settingsFontSize,
+                                trailing: l10n.settingsFontSizeValue,
+                                onTap: () {},
+                              ),
+                              _SettingsItem(
+                                icon: Icons.cached_outlined,
+                                label: l10n.settingsClearCache,
+                                trailing: '12.3 MB',
+                                onTap: () {},
+                              ),
+                            ],
+                          ),
+                        ),
+                        _AnimatedSlide(
+                          animation: _sectionsAnim,
+                          child: _buildSection(
+                            icon: Icons.info_outline,
+                            title: l10n.settingsAbout,
+                            items: [
+                              _SettingsItem(
+                                icon: Icons.system_update_outlined,
+                                label: l10n.settingsCheckUpdate,
+                                trailing: 'v1.0.0',
+                                onTap: () {},
+                              ),
+                              _SettingsItem(
+                                icon: Icons.description_outlined,
+                                label: l10n.settingsUserAgreement,
+                                onTap: () {},
+                              ),
+                              _SettingsItem(
+                                icon: Icons.privacy_tip_outlined,
+                                label: l10n.settingsPrivacyPolicy,
+                                onTap: () {},
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _AnimatedSlide(
+                          animation: _sectionsAnim,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
+                            child: SizedBox(
+                              width: double.infinity,
+                              height: 48,
+                              child: OutlinedButton(
+                                onPressed: () {},
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppColors.errorRed,
+                                  side: BorderSide(
+                                      color: AppColors.errorRed
+                                          .withValues(alpha: 0.3)),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                ),
+                                child: Text(
+                                  l10n.settingsLogout,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
-    ));
+    );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader(BuildContext context, AppLocalizations l10n) {
     return Container(
       padding: const EdgeInsets.fromLTRB(4, 4, 16, 8),
       child: Row(
@@ -255,14 +336,15 @@ class _SettingsPageState extends State<SettingsPage>
                   ),
                 ],
               ),
-              child: const Icon(Icons.chevron_left, size: 20, color: AppColors.textPrimary),
+              child: const Icon(Icons.chevron_left,
+                  size: 20, color: AppColors.textPrimary),
             ),
           ),
-          const Expanded(
+          Expanded(
             child: Text(
-              '设置',
+              l10n.settingsTitle,
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
                 color: AppColors.textPrimary,
@@ -276,7 +358,7 @@ class _SettingsPageState extends State<SettingsPage>
     );
   }
 
-  Widget _buildProfileCard() {
+  Widget _buildProfileCard(AppLocalizations l10n) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       child: Container(
@@ -298,7 +380,6 @@ class _SettingsPageState extends State<SettingsPage>
         ),
         child: Stack(
           children: [
-            // 装饰框
             Positioned(
               top: -40,
               right: -20,
@@ -329,10 +410,8 @@ class _SettingsPageState extends State<SettingsPage>
                 ),
               ),
             ),
-            // 主内容
             Row(
               children: [
-                // 头像
                 Container(
                   width: 64,
                   height: 64,
@@ -349,16 +428,17 @@ class _SettingsPageState extends State<SettingsPage>
                       ),
                     ],
                   ),
-                  child: const Icon(Icons.person, size: 32, color: Colors.white70),
+                  child:
+                      const Icon(Icons.person, size: 32, color: Colors.white70),
                 ),
                 const SizedBox(width: 18),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'SnapShop 用户',
-                        style: TextStyle(
+                      Text(
+                        l10n.settingsProfileName,
+                        style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
                           color: Colors.white,
@@ -376,9 +456,9 @@ class _SettingsPageState extends State<SettingsPage>
                       const SizedBox(height: 14),
                       Row(
                         children: [
-                          _buildStat('12', '收藏'),
+                          _buildStat('12', l10n.settingsFavorites),
                           _buildDivider(),
-                          _buildStat('8', '足迹'),
+                          _buildStat('8', l10n.settingsFootprints),
                         ],
                       ),
                     ],
@@ -487,7 +567,8 @@ class _SettingsPageState extends State<SettingsPage>
                     InkWell(
                       onTap: item.onTap,
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 14),
                         child: Row(
                           children: [
                             Container(
@@ -542,7 +623,8 @@ class _SettingsPageState extends State<SettingsPage>
                             Icon(
                               Icons.chevron_right,
                               size: 16,
-                              color: AppColors.textTertiary.withValues(alpha: 0.5),
+                              color:
+                                  AppColors.textTertiary.withValues(alpha: 0.5),
                             ),
                           ],
                         ),
@@ -551,7 +633,10 @@ class _SettingsPageState extends State<SettingsPage>
                     if (!isLast)
                       Padding(
                         padding: const EdgeInsets.only(left: 60),
-                        child: Divider(height: 0, thickness: 0.5, color: AppColors.cardBg),
+                        child: Divider(
+                            height: 0,
+                            thickness: 0.5,
+                            color: AppColors.cardBg),
                       ),
                   ],
                 );

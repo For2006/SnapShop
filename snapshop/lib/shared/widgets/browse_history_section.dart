@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import '../../config/app_colors.dart';
+import '../../config/l10n/app_localizations.dart';
 import '../../core/mock_data.dart';
 import 'platform_badge.dart';
 
@@ -22,7 +23,7 @@ class BrowseHistorySection extends StatelessWidget {
             Icon(Icons.access_time, size: 16, color: AppColors.textTertiary),
             const SizedBox(width: 6),
             Text(
-              '浏览记录',
+              AppLocalizations.of(context).browseHistory,
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,

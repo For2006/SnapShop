@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:photo_manager/photo_manager.dart';
 import '../../config/app_colors.dart';
+import '../../config/l10n/app_localizations.dart';
 import 'home_provider.dart';
 
 class GalleryPickerSheet extends ConsumerStatefulWidget {
@@ -151,7 +152,7 @@ class _GalleryPickerSheetState extends ConsumerState<GalleryPickerSheet>
         color: AppColors.primaryBg,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: _buildBody(),
+          child: _buildBody(context),
         ),
       );
     }
@@ -169,7 +170,7 @@ class _GalleryPickerSheetState extends ConsumerState<GalleryPickerSheet>
             color: AppColors.primaryBg,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: _buildBody(),
+              child: _buildBody(context),
             ),
           ),
         ),
@@ -177,7 +178,9 @@ class _GalleryPickerSheetState extends ConsumerState<GalleryPickerSheet>
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     if (!_hasBeenActive) return const SizedBox.shrink();
 
     if (_isLoading) {
@@ -192,8 +195,8 @@ class _GalleryPickerSheetState extends ConsumerState<GalleryPickerSheet>
             const Icon(Icons.photo_library_outlined,
                 size: 48, color: AppColors.textSecondary),
             const SizedBox(height: 12),
-            const Text(
-              '需要相册访问权限',
+            Text(
+              l10n.galleryPermissionTitle,
               style: TextStyle(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 8),
@@ -208,7 +211,7 @@ class _GalleryPickerSheetState extends ConsumerState<GalleryPickerSheet>
                 // 仍被拒绝则跳转系统设置
                 PhotoManager.openSetting();
               },
-              child: const Text('授权'),
+              child: Text(l10n.galleryPermissionGrant),
             ),
           ],
         ),
@@ -216,7 +219,7 @@ class _GalleryPickerSheetState extends ConsumerState<GalleryPickerSheet>
     }
 
     if (_photos.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -224,7 +227,7 @@ class _GalleryPickerSheetState extends ConsumerState<GalleryPickerSheet>
                 size: 48, color: AppColors.textSecondary),
             SizedBox(height: 12),
             Text(
-              '相册中没有照片',
+              l10n.galleryEmpty,
               style: TextStyle(color: AppColors.textSecondary),
             ),
           ],
@@ -242,14 +245,15 @@ class _GalleryPickerSheetState extends ConsumerState<GalleryPickerSheet>
       itemCount: _photos.length + 1,
       itemBuilder: (context, index) {
         if (index == 0) {
-          return _buildGalleryEntry();
+          return _buildGalleryEntry(context);
         }
         return _buildGalleryItem(index - 1);
       },
     );
   }
 
-  Widget _buildGalleryEntry() {
+  Widget _buildGalleryEntry(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return GestureDetector(
       onTap: () async {
         final picker = ImagePicker();
@@ -272,18 +276,18 @@ class _GalleryPickerSheetState extends ConsumerState<GalleryPickerSheet>
               strokeAlign: BorderSide.strokeAlignInside,
             ),
           ),
-          child: const Column(
+          child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
+              const Icon(
                 Icons.add_photo_alternate_outlined,
                 color: AppColors.brandBlueLight,
                 size: 24,
               ),
-              SizedBox(height: 6),
+              const SizedBox(height: 6),
               Text(
-                '相册',
-                style: TextStyle(
+                l10n.galleryTitle,
+                style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                   color: AppColors.textSecondary,

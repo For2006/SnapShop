@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import '../../config/l10n/app_localizations.dart';
 
 class LoadingIndicator extends StatelessWidget {
   const LoadingIndicator({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -23,9 +25,9 @@ class LoadingIndicator extends StatelessWidget {
           children: [
             _buildScanningImage(),
             const SizedBox(height: 40),
-            const Text(
-              'AI 视觉识别中...',
-              style: TextStyle(
+            Text(
+              l10n.loadingTitle,
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
@@ -34,7 +36,7 @@ class LoadingIndicator extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              '正在提取商品属性及全网比价',
+              l10n.loadingSubtitle,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.6),
                 fontSize: 14,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
+import '../../config/l10n/app_localizations.dart';
 
 enum SortOption {
   comprehensive,
@@ -17,14 +18,18 @@ class SortBar extends StatelessWidget {
     required this.onSortChanged,
   });
 
-  static final _sortOptions = <({SortOption key, String label})>[
-    (key: SortOption.comprehensive, label: '综合推荐'),
-    (key: SortOption.priceAsc, label: '价格从低到高'),
-    (key: SortOption.sales, label: '销量优先'),
-  ];
+  List<({SortOption key, String label})> _buildSortOptions(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return [
+      (key: SortOption.comprehensive, label: l10n.sortComprehensive),
+      (key: SortOption.priceAsc, label: l10n.sortPriceAsc),
+      (key: SortOption.sales, label: l10n.sortSales),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
+    final sortOptions = _buildSortOptions(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
@@ -36,7 +41,7 @@ class SortBar extends StatelessWidget {
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
-          children: _sortOptions.map((option) {
+          children: sortOptions.map((option) {
             final isActive = activeSort == option.key;
             return Padding(
               padding: const EdgeInsets.only(right: 8),

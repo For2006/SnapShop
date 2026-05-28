@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
+import '../../config/l10n/app_localizations.dart';
 import '../../core/mock_data.dart';
 import '../../shared/widgets/platform_badge.dart';
 
@@ -15,6 +16,7 @@ class ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -113,9 +115,7 @@ class ProductCard extends StatelessWidget {
                         ],
                       ),
                       Text(
-                        product.salesCount > 10000
-                            ? '已售 ${(product.salesCount / 10000).toStringAsFixed(1)}万'
-                            : '已售 ${product.salesCount}',
+                        l10n.formatSalesCount(product.salesCount),
                         style: const TextStyle(
                           fontSize: 9,
                           color: AppColors.textTertiary,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
+import '../../config/l10n/app_localizations.dart';
 import '../../core/mock_data.dart';
 
 class SearchHistorySection extends StatelessWidget {
@@ -17,7 +18,7 @@ class SearchHistorySection extends StatelessWidget {
             Icon(Icons.access_time, size: 16, color: AppColors.textTertiary),
             const SizedBox(width: 6),
             Text(
-              '搜索记录',
+              AppLocalizations.of(context).searchHistory,
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,

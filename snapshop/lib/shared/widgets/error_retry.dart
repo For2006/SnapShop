@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
+import '../../config/l10n/app_localizations.dart';
 
 class ErrorRetry extends StatelessWidget {
   final String message;
@@ -13,6 +14,7 @@ class ErrorRetry extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -34,7 +36,7 @@ class ErrorRetry extends StatelessWidget {
                 borderRadius: BorderRadius.circular(20),
               ),
             ),
-            child: const Text('重试'),
+            child: Text(l10n.retry),
           ),
         ],
       ),

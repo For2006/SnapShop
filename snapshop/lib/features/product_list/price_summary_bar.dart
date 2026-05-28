@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
+import '../../config/l10n/app_localizations.dart';
 import '../../core/mock_data.dart';
 
 class PriceSummaryBar extends StatelessWidget {
@@ -11,6 +12,7 @@ class PriceSummaryBar extends StatelessWidget {
   Widget build(BuildContext context) {
     if (products.isEmpty) return const SizedBox.shrink();
 
+    final l10n = AppLocalizations.of(context);
     final minPrice = products.map((p) => p.price).reduce((a, b) => a < b ? a : b);
     final avgPrice = products.fold(0.0, (sum, p) => sum + p.price) / products.length;
 
@@ -27,9 +29,9 @@ class PriceSummaryBar extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Text(
-                '全网 ',
-                style: TextStyle(
+              Text(
+                l10n.priceAllPlatforms,
+                style: const TextStyle(
                   fontSize: 14,
                   color: AppColors.textSecondary,
                 ),
@@ -42,9 +44,9 @@ class PriceSummaryBar extends StatelessWidget {
                   color: AppColors.textPrimary,
                 ),
               ),
-              const Text(
-                ' 款同款',
-                style: TextStyle(
+              Text(
+                l10n.priceItemsFound,
+                style: const TextStyle(
                   fontSize: 14,
                   color: AppColors.textSecondary,
                 ),
@@ -53,9 +55,9 @@ class PriceSummaryBar extends StatelessWidget {
           ),
           Row(
             children: [
-              _buildPriceLabel('最低价', '\u00a5${minPrice.toStringAsFixed(0)}', AppColors.priceRed),
+              _buildPriceLabel(l10n.priceLowest, '\u00a5${minPrice.toStringAsFixed(0)}', AppColors.priceRed),
               const SizedBox(width: 16),
-              _buildPriceLabel('均价', '\u00a5${avgPrice.round()}', AppColors.textSecondary),
+              _buildPriceLabel(l10n.priceAverage, '\u00a5${avgPrice.round()}', AppColors.textSecondary),
             ],
           ),
         ],

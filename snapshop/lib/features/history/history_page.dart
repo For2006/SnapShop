@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../config/app_colors.dart';
+import '../../config/l10n/app_localizations.dart';
 import '../../shared/widgets/search_history_section.dart';
 import '../../shared/widgets/browse_history_section.dart';
 
@@ -45,9 +46,9 @@ class HistoryPage extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
-            '历史记录',
-            style: TextStyle(
+          Text(
+            AppLocalizations.of(context).historyTitle,
+            style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../config/app_colors.dart';
+import '../../config/l10n/app_localizations.dart';
 import '../../core/utils/system_camera.dart';
 import 'home_provider.dart';
 
@@ -55,6 +56,8 @@ class _MainSearchBarState extends ConsumerState<MainSearchBar> {
   }
 
   Widget _buildSearchBar(BuildContext context, bool isGalleryOpen) {
+    final l10n = AppLocalizations.of(context);
+
     Future<void> submitSearch() async {
       final value = _textController.text;
       if (value.trim().isEmpty || _isSearching) return;
@@ -126,9 +129,9 @@ class _MainSearchBarState extends ConsumerState<MainSearchBar> {
                       controller: _textController,
                       onSubmitted: (_) => onSearchTap(),
                       style: const TextStyle(fontSize: 15, color: AppColors.textPrimary),
-                      decoration: const InputDecoration(
-                        hintText: '搜索商品...',
-                        hintStyle: TextStyle(color: AppColors.textTertiary, fontSize: 15),
+                      decoration: InputDecoration(
+                        hintText: l10n.searchPlaceholder,
+                        hintStyle: const TextStyle(color: AppColors.textTertiary, fontSize: 15),
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
                         focusedBorder: InputBorder.none,

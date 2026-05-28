@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
+import '../../config/l10n/app_localizations.dart';
 import '../../core/mock_data.dart';
 
 class AttributeEditSheet extends StatefulWidget {
@@ -34,6 +35,7 @@ class _AttributeEditSheetState extends State<AttributeEditSheet> {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final l10n = AppLocalizations.of(context);
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
@@ -54,9 +56,9 @@ class _AttributeEditSheetState extends State<AttributeEditSheet> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  '修正属性',
-                  style: TextStyle(
+                Text(
+                  l10n.attributeEditTitle,
+                  style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary,
@@ -96,7 +98,7 @@ class _AttributeEditSheetState extends State<AttributeEditSheet> {
                   controller: _controller,
                   autofocus: true,
                   decoration: InputDecoration(
-                    hintText: '请输入${widget.attribute.label}',
+                    hintText: l10n.pleaseEnter(widget.attribute.label),
                     filled: true,
                     fillColor: AppColors.secondaryBg,
                     border: OutlineInputBorder(
@@ -122,15 +124,15 @@ class _AttributeEditSheetState extends State<AttributeEditSheet> {
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: AppColors.warningAmberBorder),
                   ),
-                  child: const Row(
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.warning_amber_rounded, size: 16, color: AppColors.warningAmber),
-                      SizedBox(width: 10),
+                      const Icon(Icons.warning_amber_rounded, size: 16, color: AppColors.warningAmber),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          '修正后，AI 会重新检索更精准的商品结果',
-                          style: TextStyle(
+                          l10n.attributeEditTip,
+                          style: const TextStyle(
                             fontSize: 12,
                             color: AppColors.warningAmber,
                           ),
@@ -158,9 +160,9 @@ class _AttributeEditSheetState extends State<AttributeEditSheet> {
                       ),
                       elevation: 0,
                     ),
-                    child: const Text(
-                      '确认修改',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    child: Text(
+                      l10n.attributeEditConfirm,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),

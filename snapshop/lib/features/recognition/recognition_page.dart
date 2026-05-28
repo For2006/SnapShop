@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../config/app_colors.dart';
+import '../../config/l10n/app_localizations.dart';
 import '../../core/mock_data.dart';
 import '../../shared/widgets/loading_indicator.dart';
 import '../home/home_provider.dart';
@@ -96,6 +97,7 @@ class _RecognitionPageState extends ConsumerState<RecognitionPage> {
   Widget build(BuildContext context) {
     final homeState = ref.watch(homeProvider);
     final filterState = ref.watch(filterProvider);
+    final l10n = AppLocalizations.of(context);
     final isRecognizing = homeState.recognitionStatus == RecognitionStatus.recognizing;
 
     if (isRecognizing) {
@@ -110,7 +112,7 @@ class _RecognitionPageState extends ConsumerState<RecognitionPage> {
     return Scaffold(
       backgroundColor: AppColors.primaryBg,
       appBar: AppBar(
-        title: const Text('识别结果'),
+        title: Text(l10n.recognitionTitle),
         leading: IconButton(
           icon: const Icon(Icons.chevron_left),
           onPressed: () => context.go('/'),
@@ -129,11 +131,11 @@ class _RecognitionPageState extends ConsumerState<RecognitionPage> {
                 child: PriceSummaryBar(products: products),
               ),
               if (products.isEmpty)
-                const SliverFillRemaining(
+                SliverFillRemaining(
                   child: Center(
                     child: Text(
-                      '暂未找到相关商品，试试修改关键词吧',
-                      style: TextStyle(color: AppColors.textTertiary, fontSize: 14),
+                      l10n.recognitionEmpty,
+                      style: const TextStyle(color: AppColors.textTertiary, fontSize: 14),
                     ),
                   ),
                 )
@@ -182,7 +184,7 @@ class _RecognitionPageState extends ConsumerState<RecognitionPage> {
             text: TextSpan(
               style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
               children: [
-                const TextSpan(text: 'AI 识别为 '),
+                TextSpan(text: AppLocalizations.of(context).recognitionAiLabel),
                 TextSpan(
                   text: result.category,
                   style: const TextStyle(

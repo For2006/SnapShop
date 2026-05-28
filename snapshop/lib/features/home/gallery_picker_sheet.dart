@@ -42,9 +42,13 @@ class _GalleryPickerSheetState extends ConsumerState<GalleryPickerSheet>
   void didUpdateWidget(GalleryPickerSheet oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.active && !oldWidget.active) {
-      _hasBeenActive = true;
-      _isLoading = true;
-      _loadPhotos();
+      setState(() {
+        _hasBeenActive = true;
+        _isLoading = true;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _loadPhotos();
+      });
     }
   }
 
@@ -74,51 +78,69 @@ class _GalleryPickerSheetState extends ConsumerState<GalleryPickerSheet>
       _photos = [];
     });
 
-    // 先检查当前权限状态，避免重复弹窗
-    final permission = await PhotoManager.requestPermissionExtend();
+    final currentPerm = await PhotoManager.getPermissionState(requestOption: const PermissionRequestOption());
     if (!mounted) return;
 
-    if (!permission.isAuth) {
-      setState(() {
-        _isLoading = false;
-        _hasPermission = false;
-      });
-      return;
+    if (!currentPerm.hasAccess) {
+      final permission = await PhotoManager.requestPermissionExtend();
+      if (!mounted) return;
+
+      if (!permission.hasAccess) {
+        setState(() {
+          _isLoading = false;
+          _hasPermission = false;
+        });
+        return;
+      }
     }
 
-    _hasPermission = true;
+    setState(() {
+      _hasPermission = true;
+    });
 
-    final albums =
-        await PhotoManager.getAssetPathList(type: RequestType.image);
-    if (albums.isEmpty) {
+    try {
+      final count = await PhotoManager.getAssetCount(type: RequestType.image);
+      if (count == 0) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
+      final size = count < 30 ? count : 30;
+      final photos = await PhotoManager.getAssetListPaged(
+        page: 0,
+        pageCount: size,
+        type: RequestType.image,
+      );
+      photos.sort((a, b) => b.createDateTime.compareTo(a.createDateTime));
+
+      // 预加载缩略图
+      final thumbnails = <int, Uint8List?>{};
+      for (var i = 0; i < photos.length; i++) {
+        final data = await photos[i].thumbnailDataWithSize(
+          const ThumbnailSize(200, 200),
+        );
+        thumbnails[i] = data;
+      }
+
+      if (mounted) {
+        setState(() {
+          _photos = photos;
+          _thumbnails
+            ..clear()
+            ..addAll(thumbnails);
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
       }
-      return;
-    }
-
-    final recentAlbum = albums.first;
-    final photos = await recentAlbum.getAssetListPaged(page: 0, size: 30);
-
-    // 预加载缩略图
-    final thumbnails = <int, Uint8List?>{};
-    for (var i = 0; i < photos.length; i++) {
-      final data = await photos[i].thumbnailDataWithSize(
-        const ThumbnailSize(200, 200),
-      );
-      thumbnails[i] = data;
-    }
-
-    if (mounted) {
-      setState(() {
-        _photos = photos;
-        _thumbnails
-          ..clear()
-          ..addAll(thumbnails);
-        _isLoading = false;
-      });
     }
   }
 
@@ -179,7 +201,7 @@ class _GalleryPickerSheetState extends ConsumerState<GalleryPickerSheet>
               onPressed: () async {
                 // 先重新请求权限
                 final perm = await PhotoManager.requestPermissionExtend();
-                if (perm.isAuth) {
+                if (perm.hasAccess) {
                   _loadPhotos();
                   return;
                 }

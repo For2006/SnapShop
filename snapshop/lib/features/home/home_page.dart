@@ -143,6 +143,8 @@ class _HomePageState extends ConsumerState<HomePage>
       }
     }
 
+    final cardBody = _buildCardBody(context, isGalleryOpen, isHistoryOpen);
+
     return PopScope(
       canPop: !isGalleryOpen && !isHistoryOpen,
       onPopInvokedWithResult: (didPop, result) {
@@ -197,7 +199,7 @@ class _HomePageState extends ConsumerState<HomePage>
               },
               child: AnimatedBuilder(
                 animation: _drawerController,
-                child: _buildCardBody(context, isGalleryOpen, isHistoryOpen),
+                child: cardBody,
                 builder: (context, child) {
                   final v = _drawerController.value;
                   final offset = 305 * v;

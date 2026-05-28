@@ -14,10 +14,14 @@ class SnapShopApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
     final settingsState = ref.watch(settingsProvider);
 
+    final fontSizeScale = settingsState.fontSizeOption.scale;
+
     return MaterialApp.router(
       title: 'SnapShop',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
+      theme: AppTheme.lightTheme(fontSizeScale),
+      darkTheme: AppTheme.darkTheme(fontSizeScale),
+      themeMode: settingsState.themeModeOption.toFlutterThemeMode(),
       locale: settingsState.localeOption.locale,
       supportedLocales: const [
         Locale('zh', 'CN'),

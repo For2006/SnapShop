@@ -113,6 +113,51 @@ class AppLocalizations {
     'price_items_found': {'zh': ' 款同款', 'en': ' items found'},
     'price_lowest': {'zh': '最低价', 'en': 'Lowest'},
     'price_average': {'zh': '均价', 'en': 'Average'},
+
+    'appearance_light': {'zh': '浅色模式', 'en': 'Light Mode'},
+    'appearance_dark': {'zh': '深色模式', 'en': 'Dark Mode'},
+    'appearance_system': {'zh': '跟随系统', 'en': 'Follow System'},
+    'font_size_small': {'zh': '小', 'en': 'Small'},
+    'font_size_standard': {'zh': '标准', 'en': 'Standard'},
+    'font_size_large': {'zh': '大', 'en': 'Large'},
+    'font_size_preview': {'zh': '预览效果', 'en': 'Preview'},
+
+    // ── Cache ──
+    'cache_clear_title': {'zh': '确认清理', 'en': 'Confirm Clear'},
+    'cache_clear_message': {'zh': '确定要清理应用缓存吗？', 'en': 'Are you sure you want to clear the app cache?'},
+    'cache_confirm': {'zh': '确认', 'en': 'Confirm'},
+    'cache_cancel': {'zh': '取消', 'en': 'Cancel'},
+    'cache_cleared': {'zh': '已清理', 'en': 'Cleared'},
+
+    // ── Notification preferences ──
+    'notif_push_title': {'zh': '推送通知', 'en': 'Push Notifications'},
+    'notif_inapp_title': {'zh': '应用内提醒', 'en': 'In-App Alerts'},
+
+    // ── Profile edit ──
+    'profile_edit_title': {'zh': '编辑个人信息', 'en': 'Edit Profile'},
+    'profile_nickname': {'zh': '昵称', 'en': 'Nickname'},
+    'profile_bio': {'zh': '简介', 'en': 'Bio'},
+    'profile_bio_hint': {'zh': '介绍一下自己...', 'en': 'Tell us about yourself...'},
+    'profile_save': {'zh': '保存', 'en': 'Save'},
+    'profile_avatar_hint': {'zh': '点击更换头像', 'en': 'Tap to change avatar'},
+
+    // ── Login page ──
+    'login_title': {'zh': '登录', 'en': 'Login'},
+    'login_phone_hint': {'zh': '请输入手机号', 'en': 'Enter phone number'},
+    'login_password_hint': {'zh': '请输入密码', 'en': 'Enter password'},
+    'login_button': {'zh': '登录', 'en': 'Login'},
+    'login_no_account': {'zh': '没有账号？', 'en': "Don't have an account? "},
+    'login_register': {'zh': '注册', 'en': 'Register'},
+    'register_title': {'zh': '注册', 'en': 'Register'},
+    'register_button': {'zh': '注册', 'en': 'Register'},
+    'login_have_account': {'zh': '已有账号？', 'en': 'Already have an account? '},
+    'login_back': {'zh': '返回登录', 'en': 'Login'},
+
+    // ── Logout ──
+    'logout_title': {'zh': '退出登录', 'en': 'Log Out'},
+    'logout_message': {'zh': '确定要退出登录吗？', 'en': 'Are you sure you want to log out?'},
+    'logout_confirm': {'zh': '确定', 'en': 'Confirm'},
+    'logout_cancel': {'zh': '取消', 'en': 'Cancel'},
   };
 
   String get(String key) {
@@ -160,6 +205,45 @@ class AppLocalizations {
   String get settingsProfileName => get('settings_profile_name');
   String get settingsFavorites => get('settings_favorites');
   String get settingsFootprints => get('settings_footprints');
+  String get appearanceLight => get('appearance_light');
+  String get appearanceDark => get('appearance_dark');
+  String get appearanceSystem => get('appearance_system');
+  String get fontSizeSmall => get('font_size_small');
+  String get fontSizeStandard => get('font_size_standard');
+  String get fontSizeLarge => get('font_size_large');
+  String get fontSizePreview => get('font_size_preview');
+
+  String get cacheClearTitle => get('cache_clear_title');
+  String get cacheClearMessage => get('cache_clear_message');
+  String get cacheConfirm => get('cache_confirm');
+  String get cacheCancel => get('cache_cancel');
+  String get cacheCleared => get('cache_cleared');
+
+  String get notifPushTitle => get('notif_push_title');
+  String get notifInappTitle => get('notif_inapp_title');
+
+  String get profileEditTitle => get('profile_edit_title');
+  String get profileNickname => get('profile_nickname');
+  String get profileBio => get('profile_bio');
+  String get profileBioHint => get('profile_bio_hint');
+  String get profileSave => get('profile_save');
+  String get profileAvatarHint => get('profile_avatar_hint');
+
+  String get loginTitle => get('login_title');
+  String get loginPhoneHint => get('login_phone_hint');
+  String get loginPasswordHint => get('login_password_hint');
+  String get loginButton => get('login_button');
+  String get loginNoAccount => get('login_no_account');
+  String get loginRegister => get('login_register');
+  String get registerTitle => get('register_title');
+  String get registerButton => get('register_button');
+  String get loginHaveAccount => get('login_have_account');
+  String get loginBack => get('login_back');
+
+  String get logoutTitle => get('logout_title');
+  String get logoutMessage => get('logout_message');
+  String get logoutConfirm => get('logout_confirm');
+  String get logoutCancel => get('logout_cancel');
 
   // Loading
   String get loadingTitle => get('loading_title');

@@ -1,9 +1,16 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+
 import '../../config/app_colors.dart';
 import '../../config/l10n/app_localizations.dart';
+import '../../config/theme_context.dart';
 import 'settings_provider.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
@@ -53,9 +60,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
       context: context,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
-        decoration: const BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: context.colors.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         padding: const EdgeInsets.only(bottom: 34),
         child: Column(
@@ -66,7 +73,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.textTertiary.withValues(alpha: 0.3),
+                color: context.colors.textTertiary.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -74,10 +81,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
               child: Text(
                 l10n.settingsLanguage,
-                style: const TextStyle(
-                  fontSize: 17,
+                style: TextStyle(
+                  fontSize: context.fs(17),
                   fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+                  color: context.colors.textPrimary,
                 ),
               ),
             ),
@@ -97,12 +104,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                         child: Text(
                           option.displayName,
                           style: TextStyle(
-                            fontSize: 15,
+                            fontSize: context.fs(15),
                             fontWeight:
                                 isSelected ? FontWeight.w600 : FontWeight.w400,
                             color: isSelected
                                 ? AppColors.brandBlue
-                                : AppColors.textPrimary,
+                                : context.colors.textPrimary,
                           ),
                         ),
                       ),
@@ -123,6 +130,479 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
     );
   }
 
+  void _showAppearancePicker() {
+    final l10n = AppLocalizations.of(context);
+    final currentTheme = ref.read(settingsProvider).themeModeOption;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: context.colors.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.only(bottom: 34),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: context.colors.textTertiary.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+              child: Text(
+                l10n.settingsAppearance,
+                style: TextStyle(
+                  fontSize: context.fs(17),
+                  fontWeight: FontWeight.w700,
+                  color: context.colors.textPrimary,
+                ),
+              ),
+            ),
+            ...ThemeModeOption.values.map((option) {
+              final isSelected = option == currentTheme;
+              return InkWell(
+                onTap: () {
+                  ref.read(settingsProvider.notifier).setThemeMode(option);
+                  Navigator.pop(ctx);
+                },
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          option.label(l10n),
+                          style: TextStyle(
+                            fontSize: context.fs(15),
+                            fontWeight:
+                                isSelected ? FontWeight.w600 : FontWeight.w400,
+                            color: isSelected
+                                ? AppColors.brandBlue
+                                : context.colors.textPrimary,
+                          ),
+                        ),
+                      ),
+                      if (isSelected)
+                        const Icon(
+                          Icons.check_circle,
+                          size: 22,
+                          color: AppColors.brandBlue,
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showFontSizePicker() {
+    final l10n = AppLocalizations.of(context);
+    final currentFontSize = ref.read(settingsProvider).fontSizeOption;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: context.colors.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.only(bottom: 34),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: context.colors.textTertiary.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+              child: Text(
+                l10n.settingsFontSize,
+                style: TextStyle(
+                  fontSize: context.fs(17),
+                  fontWeight: FontWeight.w700,
+                  color: context.colors.textPrimary,
+                ),
+              ),
+            ),
+            ...FontSizeOption.values.map((option) {
+              final isSelected = option == currentFontSize;
+              return InkWell(
+                onTap: () {
+                  ref.read(settingsProvider.notifier).setFontSize(option);
+                  Navigator.pop(ctx);
+                },
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          option.label(l10n),
+                          style: TextStyle(
+                            fontSize: context.fs(15),
+                            fontWeight:
+                                isSelected ? FontWeight.w600 : FontWeight.w400,
+                            color: isSelected
+                                ? AppColors.brandBlue
+                                : context.colors.textPrimary,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        'Aa',
+                        style: TextStyle(
+                          fontSize: 20 * option.scale,
+                          fontWeight:
+                              isSelected ? FontWeight.w600 : FontWeight.w400,
+                          color: isSelected
+                              ? AppColors.brandBlue
+                              : context.colors.textSecondary,
+                        ),
+                      ),
+                      if (isSelected)
+                        const Padding(
+                          padding: EdgeInsets.only(left: 8),
+                          child: Icon(
+                            Icons.check_circle,
+                            size: 22,
+                            color: AppColors.brandBlue,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showNotificationPicker() {
+    final l10n = AppLocalizations.of(context);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx2, setSheetState) {
+          final current = ref.read(settingsProvider);
+          return Container(
+            decoration: BoxDecoration(
+              color: context.colors.surface,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            padding: const EdgeInsets.only(bottom: 34),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: context.colors.textTertiary.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                  child: Text(
+                    l10n.settingsNotifications,
+                    style: TextStyle(
+                      fontSize: context.fs(17),
+                      fontWeight: FontWeight.w700,
+                      color: context.colors.textPrimary,
+                    ),
+                  ),
+                ),
+                SwitchListTile(
+                  title: Text(
+                    l10n.notifPushTitle,
+                    style: TextStyle(
+                      fontSize: context.fs(15),
+                      color: context.colors.textPrimary,
+                    ),
+                  ),
+                  value: current.pushEnabled,
+                  activeTrackColor: AppColors.brandBlue,
+                  onChanged: (val) {
+                    ref.read(settingsProvider.notifier).setPushEnabled(val);
+                    setSheetState(() {});
+                  },
+                ),
+                Divider(height: 0, indent: 16, endIndent: 16, color: context.colors.divider),
+                SwitchListTile(
+                  title: Text(
+                    l10n.notifInappTitle,
+                    style: TextStyle(
+                      fontSize: context.fs(15),
+                      color: context.colors.textPrimary,
+                    ),
+                  ),
+                  value: current.inAppAlertsEnabled,
+                  activeTrackColor: AppColors.brandBlue,
+                  onChanged: (val) {
+                    ref.read(settingsProvider.notifier).setInAppAlertsEnabled(val);
+                    setSheetState(() {});
+                  },
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  String _getCacheSize() {
+    final cache = PaintingBinding.instance.imageCache;
+    final bytes = cache.currentSizeBytes;
+    if (bytes < 1024) return '0 KB';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  void _showClearCacheDialog() {
+    final l10n = AppLocalizations.of(context);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.cacheClearTitle),
+        content: Text(l10n.cacheClearMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l10n.cacheCancel),
+          ),
+          TextButton(
+            onPressed: () {
+              PaintingBinding.instance.imageCache.clear();
+              PaintingBinding.instance.imageCache.clearLiveImages();
+              Navigator.pop(ctx);
+              setState(() {});
+            },
+            child: Text(
+              l10n.cacheConfirm,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                color: AppColors.brandBlue,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showProfileEditSheet() {
+    final l10n = AppLocalizations.of(context);
+    final currentProfile = ref.read(settingsProvider);
+
+    String? tempAvatarPath = currentProfile.avatarPath;
+    final nameController = TextEditingController(text: currentProfile.nickname);
+    final bioController = TextEditingController(text: currentProfile.bio);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx2, setSheetState) {
+          return Padding(
+            padding: EdgeInsets.only(bottom: MediaQuery.of(ctx2).viewInsets.bottom),
+            child: Container(
+              decoration: BoxDecoration(
+                color: context.colors.surface,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              padding: const EdgeInsets.only(bottom: 34),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 12),
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: context.colors.textTertiary.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                    child: Text(
+                      l10n.profileEditTitle,
+                      style: TextStyle(
+                        fontSize: context.fs(17),
+                        fontWeight: FontWeight.w700,
+                        color: context.colors.textPrimary,
+                      ),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () async {
+                      final picker = ImagePicker();
+                      final picked = await picker.pickImage(source: ImageSource.gallery, maxWidth: 512, maxHeight: 512);
+                      if (picked != null) {
+                        final dir = await getApplicationDocumentsDirectory();
+                        final targetPath = '${dir.path}/avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
+                        final compressed = await FlutterImageCompress.compressAndGetFile(
+                          picked.path, targetPath,
+                          quality: 85,
+                          minWidth: 512,
+                          minHeight: 512,
+                        );
+                        tempAvatarPath = compressed?.path ?? picked.path;
+                        setSheetState(() {});
+                      }
+                    },
+                    child: Container(
+                      width: 88,
+                      height: 88,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: context.colors.cardBg,
+                        border: Border.all(color: context.colors.divider, width: 1),
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          if (tempAvatarPath != null)
+                            ClipOval(
+                              child: Image.file(
+                                File(tempAvatarPath!),
+                                width: 88,
+                                height: 88,
+                                fit: BoxFit.cover,
+                              ),
+                            )
+                          else
+                            Icon(Icons.person, size: 40, color: context.colors.textTertiary),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              width: 28,
+                              height: 28,
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: AppColors.brandBlue,
+                              ),
+                              child: const Icon(Icons.camera_alt, size: 14, color: Colors.white),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: TextField(
+                      controller: nameController,
+                      decoration: InputDecoration(
+                        labelText: l10n.profileNickname,
+                        labelStyle: TextStyle(color: context.colors.textSecondary, fontSize: context.fs(14)),
+                        filled: true,
+                        fillColor: context.colors.cardBg,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                      ),
+                      style: TextStyle(fontSize: context.fs(15), color: context.colors.textPrimary),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: TextField(
+                      controller: bioController,
+                      maxLines: 3,
+                      maxLength: 100,
+                      decoration: InputDecoration(
+                        labelText: l10n.profileBio,
+                        hintText: l10n.profileBioHint,
+                        labelStyle: TextStyle(color: context.colors.textSecondary, fontSize: context.fs(14)),
+                        hintStyle: TextStyle(color: context.colors.textTertiary, fontSize: context.fs(14)),
+                        filled: true,
+                        fillColor: context.colors.cardBg,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                      ),
+                      style: TextStyle(fontSize: context.fs(15), color: context.colors.textPrimary),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: FilledButton(
+                        onPressed: () {
+                          ref.read(settingsProvider.notifier).setProfile(
+                            tempAvatarPath,
+                            nameController.text.trim().isEmpty ? 'SnapShop 用户' : nameController.text.trim(),
+                            bioController.text.trim(),
+                          );
+                          Navigator.pop(ctx2);
+                        },
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.brandBlue,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: Text(
+                          l10n.profileSave,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    ).then((_) {
+      nameController.dispose();
+      bioController.dispose();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -130,12 +610,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
-        statusBarColor: AppColors.secondaryBg,
+        statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.dark,
         statusBarBrightness: Brightness.light,
       ),
       child: Scaffold(
-        backgroundColor: AppColors.secondaryBg,
+        backgroundColor: context.colors.secondaryBg,
         body: SafeArea(
           child: Stack(
             children: [
@@ -185,7 +665,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                       children: [
                         _AnimatedSlide(
                           animation: _profileAnim,
-                          child: _buildProfileCard(l10n),
+                          child: _buildProfileCard(l10n, settingsState),
                         ),
                         _AnimatedSlide(
                           animation: _sectionsAnim,
@@ -209,7 +689,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                                 icon: Icons.notifications_outlined,
                                 label: l10n.settingsNotifications,
                                 subtitle: l10n.settingsNotificationsDesc,
-                                onTap: () {},
+                                onTap: _showNotificationPicker,
                               ),
                             ],
                           ),
@@ -229,20 +709,20 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                               _SettingsItem(
                                 icon: Icons.palette_outlined,
                                 label: l10n.settingsAppearance,
-                                trailing: l10n.settingsAppearanceValue,
-                                onTap: () {},
+                                trailing: settingsState.themeModeOption.label(l10n),
+                                onTap: _showAppearancePicker,
                               ),
                               _SettingsItem(
                                 icon: Icons.text_fields,
                                 label: l10n.settingsFontSize,
-                                trailing: l10n.settingsFontSizeValue,
-                                onTap: () {},
+                                trailing: settingsState.fontSizeOption.label(l10n),
+                                onTap: _showFontSizePicker,
                               ),
                               _SettingsItem(
                                 icon: Icons.cached_outlined,
                                 label: l10n.settingsClearCache,
-                                trailing: '12.3 MB',
-                                onTap: () {},
+                                trailing: _getCacheSize(),
+                                onTap: _showClearCacheDialog,
                               ),
                             ],
                           ),
@@ -273,36 +753,61 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                           ),
                         ),
                         const SizedBox(height: 16),
-                        _AnimatedSlide(
-                          animation: _sectionsAnim,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 12),
-                            child: SizedBox(
-                              width: double.infinity,
-                              height: 48,
-                              child: OutlinedButton(
-                                onPressed: () {},
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: AppColors.errorRed,
-                                  side: BorderSide(
-                                      color: AppColors.errorRed
-                                          .withValues(alpha: 0.3)),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
+                        if (settingsState.isLoggedIn)
+                          _AnimatedSlide(
+                            animation: _sectionsAnim,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 12),
+                              child: SizedBox(
+                                width: double.infinity,
+                                height: 48,
+                                child: OutlinedButton(
+                                  onPressed: () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                        title: Text(l10n.logoutTitle),
+                                        content: Text(l10n.logoutMessage),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(ctx),
+                                            child: Text(l10n.logoutCancel),
+                                          ),
+                                          TextButton(
+                                            onPressed: () {
+                                              ref.read(settingsProvider.notifier).logout();
+                                              Navigator.pop(ctx);
+                                            },
+                                            child: Text(
+                                              l10n.logoutConfirm,
+                                              style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.errorRed),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppColors.errorRed,
+                                    side: BorderSide(
+                                        color: AppColors.errorRed
+                                            .withValues(alpha: 0.3)),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
                                   ),
-                                ),
-                                child: Text(
-                                  l10n.settingsLogout,
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
+                                  child: Text(
+                                    l10n.settingsLogout,
+                                    style: TextStyle(
+                                      fontSize: context.fs(15),
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
                       ],
                     ),
                   ),
@@ -326,7 +831,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: AppColors.white,
+                color: context.colors.surface,
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
@@ -336,18 +841,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                   ),
                 ],
               ),
-              child: const Icon(Icons.chevron_left,
-                  size: 20, color: AppColors.textPrimary),
+              child: Icon(Icons.chevron_left,
+                  size: 20, color: context.colors.textPrimary),
             ),
           ),
           Expanded(
             child: Text(
               l10n.settingsTitle,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 18,
+              style: TextStyle(
+                fontSize: context.fs(18),
                 fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
+                color: context.colors.textPrimary,
                 letterSpacing: -0.3,
               ),
             ),
@@ -358,8 +863,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
     );
   }
 
-  Widget _buildProfileCard(AppLocalizations l10n) {
-    return Padding(
+  Widget _buildProfileCard(AppLocalizations l10n, SettingsState settingsState) {
+    return GestureDetector(
+      onTap: () {
+        if (settingsState.isLoggedIn) {
+          _showProfileEditSheet();
+        } else {
+          context.push('/login');
+        }
+      },
+      child: Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       child: Container(
         padding: const EdgeInsets.all(24),
@@ -428,8 +941,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                       ),
                     ],
                   ),
-                  child:
-                      const Icon(Icons.person, size: 32, color: Colors.white70),
+                  child: settingsState.avatarPath != null
+                      ? ClipOval(
+                          child: Image.file(
+                            File(settingsState.avatarPath!),
+                            width: 64,
+                            height: 64,
+                            fit: BoxFit.cover,
+                          ),
+                        )
+                      : const Icon(Icons.person, size: 32, color: Colors.white70),
                 ),
                 const SizedBox(width: 18),
                 Expanded(
@@ -437,7 +958,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        l10n.settingsProfileName,
+                        settingsState.nickname,
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
@@ -447,7 +968,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'user@example.com',
+                        settingsState.bio.isNotEmpty ? settingsState.bio : 'user@example.com',
                         style: TextStyle(
                           fontSize: 13,
                           color: Colors.white.withValues(alpha: 0.65),
@@ -472,6 +993,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
               ],
             ),
           ],
+        ),
         ),
       ),
     );
@@ -535,10 +1057,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                 const SizedBox(width: 10),
                 Text(
                   title,
-                  style: const TextStyle(
-                    fontSize: 15,
+                  style: TextStyle(
+                    fontSize: context.fs(15),
                     fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
+                    color: context.colors.textPrimary,
                     letterSpacing: -0.2,
                   ),
                 ),
@@ -547,7 +1069,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
           ),
           Container(
             decoration: BoxDecoration(
-              color: AppColors.white,
+              color: context.colors.surface,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
@@ -591,10 +1113,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                                 children: [
                                   Text(
                                     item.label,
-                                    style: const TextStyle(
-                                      fontSize: 14,
+                                    style: TextStyle(
+                                      fontSize: context.fs(14),
                                       fontWeight: FontWeight.w500,
-                                      color: AppColors.textPrimary,
+                                      color: context.colors.textPrimary,
                                     ),
                                   ),
                                   if (item.subtitle != null)
@@ -602,9 +1124,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                                       padding: const EdgeInsets.only(top: 2),
                                       child: Text(
                                         item.subtitle!,
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          color: AppColors.textTertiary,
+                                        style: TextStyle(
+                                          fontSize: context.fs(11),
+                                          color: context.colors.textTertiary,
                                         ),
                                       ),
                                     ),
@@ -614,9 +1136,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                             if (item.trailing != null)
                               Text(
                                 item.trailing!,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: AppColors.textTertiary,
+                                style: TextStyle(
+                                  fontSize: context.fs(13),
+                                  color: context.colors.textTertiary,
                                 ),
                               ),
                             const SizedBox(width: 4),
@@ -624,7 +1146,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                               Icons.chevron_right,
                               size: 16,
                               color:
-                                  AppColors.textTertiary.withValues(alpha: 0.5),
+                                  context.colors.textTertiary.withValues(alpha: 0.5),
                             ),
                           ],
                         ),
@@ -636,7 +1158,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                         child: Divider(
                             height: 0,
                             thickness: 0.5,
-                            color: AppColors.cardBg),
+                            color: context.colors.cardBg),
                       ),
                   ],
                 );
@@ -650,12 +1172,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
 
   Color _iconColor(_SettingsItem item) {
     if (item.iconColor != null) return item.iconColor!;
-    return AppColors.textSecondary;
+    return context.colors.textSecondary;
   }
 
   Color _iconBgColor(_SettingsItem item) {
     if (item.iconColor != null) return item.iconColor!.withValues(alpha: 0.1);
-    return AppColors.cardBg;
+    return context.colors.cardBg;
   }
 }
 

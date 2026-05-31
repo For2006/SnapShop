@@ -43,6 +43,11 @@ class AppLocalizations {
     'settings_profile_name': {'zh': 'SnapShop 用户', 'en': 'SnapShop User'},
     'settings_favorites': {'zh': '收藏', 'en': 'Favorites'},
     'settings_footprints': {'zh': '足迹', 'en': 'Footprints'},
+    'no_favorites': {'zh': '暂无收藏', 'en': 'No favorites yet'},
+    'no_browse_history': {'zh': '暂无浏览记录', 'en': 'No browsing history'},
+    'browse_clear_title': {'zh': '清空足迹', 'en': 'Clear History'},
+    'browse_clear_message': {'zh': '确定要清空所有浏览记录吗？此操作不可恢复。', 'en': 'Clear all browsing history? This cannot be undone.'},
+    'browse_delete_item': {'zh': '删除此条记录', 'en': 'Delete this record'},
 
     // ── Loading ──
     'loading_title': {'zh': 'AI 视觉识别中...', 'en': 'AI Visual Recognition...'},
@@ -158,6 +163,26 @@ class AppLocalizations {
     'logout_message': {'zh': '确定要退出登录吗？', 'en': 'Are you sure you want to log out?'},
     'logout_confirm': {'zh': '确定', 'en': 'Confirm'},
     'logout_cancel': {'zh': '取消', 'en': 'Cancel'},
+
+    // ── Error messages ──
+    'recognition_failed': {
+      'zh': '识别失败，请检查网络后重试',
+      'en': 'Recognition failed, check your network and try again'
+    },
+    'search_failed': {
+      'zh': '搜索失败，请检查网络后重试',
+      'en': 'Search failed, check your network and try again'
+    },
+    'login_failed': {'zh': '登录失败', 'en': 'Login failed'},
+    'register_failed': {'zh': '注册失败', 'en': 'Registration failed'},
+    'no_search_history': {'zh': '暂无搜索记录', 'en': 'No search history'},
+    'history_login_prompt': {
+      'zh': '登录后查看搜索历史',
+      'en': 'Log in to view search history'
+    },
+    'history_login_button': {'zh': '立即登录', 'en': 'Log In Now'},
+    'snapshop_user': {'zh': 'SnapShop 用户', 'en': 'SnapShop User'},
+    'personal_center': {'zh': '个人中心', 'en': 'Personal Center'},
   };
 
   String get(String key) {
@@ -205,6 +230,11 @@ class AppLocalizations {
   String get settingsProfileName => get('settings_profile_name');
   String get settingsFavorites => get('settings_favorites');
   String get settingsFootprints => get('settings_footprints');
+  String get noFavorites => get('no_favorites');
+  String get noBrowseHistory => get('no_browse_history');
+  String get browseClearTitle => get('browse_clear_title');
+  String get browseClearMessage => get('browse_clear_message');
+  String get browseDeleteItem => get('browse_delete_item');
   String get appearanceLight => get('appearance_light');
   String get appearanceDark => get('appearance_dark');
   String get appearanceSystem => get('appearance_system');
@@ -244,6 +274,17 @@ class AppLocalizations {
   String get logoutMessage => get('logout_message');
   String get logoutConfirm => get('logout_confirm');
   String get logoutCancel => get('logout_cancel');
+
+  // Error messages
+  String get recognitionFailed => get('recognition_failed');
+  String get searchFailed => get('search_failed');
+  String get loginFailed => get('login_failed');
+  String get registerFailed => get('register_failed');
+  String get noSearchHistory => get('no_search_history');
+  String get historyLoginPrompt => get('history_login_prompt');
+  String get historyLoginButton => get('history_login_button');
+  String get snapshopUser => get('snapshop_user');
+  String get personalCenter => get('personal_center');
 
   // Loading
   String get loadingTitle => get('loading_title');

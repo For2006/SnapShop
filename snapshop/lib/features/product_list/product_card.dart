@@ -1,25 +1,139 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:dio/dio.dart';
 import '../../config/app_colors.dart';
 import '../../config/theme_context.dart';
 import '../../config/l10n/app_localizations.dart';
 import '../../core/mock_data.dart';
+import '../../core/network/api_client.dart';
 import '../../shared/widgets/platform_badge.dart';
+import '../settings/settings_provider.dart';
 
-class ProductCard extends StatelessWidget {
+class ProductCard extends ConsumerStatefulWidget {
   final MockProduct product;
   final VoidCallback onTap;
+  final bool isFavorited;
+  final VoidCallback? onFavoriteChanged;
 
   const ProductCard({
     super.key,
     required this.product,
     required this.onTap,
+    this.isFavorited = false,
+    this.onFavoriteChanged,
   });
+
+  @override
+  ConsumerState<ProductCard> createState() => _ProductCardState();
+}
+
+class _ProductCardState extends ConsumerState<ProductCard> {
+  bool _favorited = false;
+  bool _toggling = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _favorited = widget.isFavorited;
+  }
+
+  @override
+  void didUpdateWidget(covariant ProductCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isFavorited != widget.isFavorited) {
+      _favorited = widget.isFavorited;
+    }
+  }
+
+  Future<void> _toggleFavorite() async {
+    if (_toggling) return;
+
+    final isLoggedIn = ref.read(settingsProvider).isLoggedIn;
+    if (!isLoggedIn) {
+      final go = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('需要登录'),
+          content: const Text('收藏功能需要登录账号，是否前往登录？'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('去登录'),
+            ),
+          ],
+        ),
+      );
+      if (go == true && mounted) {
+        context.push('/login');
+      }
+      return;
+    }
+
+    final wasFavorited = _favorited;
+    setState(() { _favorited = !_favorited; _toggling = true; });
+
+    try {
+      final api = ApiClient();
+      if (wasFavorited) {
+        await api.delete('/favorites/${widget.product.id}');
+      } else {
+        await api.post('/favorites', data: {
+          'product_id': widget.product.id,
+          'product_snapshot': {
+            'id': widget.product.id,
+            'name': widget.product.name,
+            'price': widget.product.price,
+            'original_price': widget.product.originalPrice,
+            'platform': widget.product.platform,
+            'image_url': widget.product.imageUrl,
+            'shop_name': widget.product.shopName,
+            'shop_type': widget.product.shopType,
+            'rating': widget.product.rating,
+            'sales_count': widget.product.salesCount,
+            'tags': widget.product.tags,
+          },
+        });
+      }
+      widget.onFavoriteChanged?.call();
+    } on DioException catch (e) {
+      setState(() => _favorited = wasFavorited);
+      if (mounted) {
+        String message = '收藏操作失败，请重试';
+        if (e.response != null) {
+          final detail = e.response!.data;
+          if (detail is Map<String, dynamic>) {
+            message = detail['message']?.toString() ?? message;
+          }
+        } else if (e.type == DioExceptionType.connectionError) {
+          message = '无法连接服务器，请检查网络';
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
+        );
+      }
+    } catch (e) {
+      setState(() => _favorited = wasFavorited);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('收藏失败：$e'), duration: const Duration(seconds: 2)),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _toggling = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return GestureDetector(
-      onTap: onTap,
+      onTap: widget.onTap,
       child: Container(
         decoration: BoxDecoration(
           color: context.colors.cardBg,
@@ -34,19 +148,41 @@ class ProductCard extends StatelessWidget {
               children: [
                 AspectRatio(
                   aspectRatio: 3 / 4,
-                  child: Image.network(
-                    product.imageUrl,
+                  child: CachedNetworkImage(
+                    imageUrl: widget.product.imageUrl,
                     fit: BoxFit.cover,
                     width: double.infinity,
-                    errorBuilder: (_, __, ___) => Container(
+                    placeholder: (_, __) => Container(color: context.colors.cardBg),
+                    errorWidget: (_, __, ___) => Container(
                       color: context.colors.cardBg,
+                      child: const Center(child: Icon(Icons.image_not_supported, color: Colors.grey)),
                     ),
                   ),
                 ),
                 Positioned(
                   top: 8,
                   left: 8,
-                  child: PlatformBadge(platform: product.platform),
+                  child: PlatformBadge(platform: widget.product.platform),
+                ),
+                Positioned(
+                  bottom: 8,
+                  right: 8,
+                  child: GestureDetector(
+                    onTap: _toggleFavorite,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                      ),
+                      child: Icon(
+                        _favorited ? Icons.favorite : Icons.favorite_border,
+                        size: 16,
+                        color: _favorited ? AppColors.priceRed : context.colors.textTertiary,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -56,7 +192,7 @@ class ProductCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    product.name,
+                    widget.product.name,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -66,11 +202,11 @@ class ProductCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  if (product.tags.isNotEmpty)
+                  if (widget.product.tags.isNotEmpty)
                     Wrap(
                       spacing: 4,
                       runSpacing: 2,
-                      children: product.tags.map((tag) {
+                      children: widget.product.tags.map((tag) {
                         return Container(
                           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                           decoration: BoxDecoration(
@@ -93,33 +229,42 @@ class ProductCard extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            '\u00a5',
-                            style: TextStyle(
-                              fontSize: context.fs(11),
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.priceRed,
+                      Flexible(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '\u00a5',
+                              style: TextStyle(
+                                fontSize: context.fs(11),
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.priceRed,
+                              ),
                             ),
-                          ),
-                          Text(
-                            '${product.price}',
-                            style: TextStyle(
-                              fontSize: context.fs(20),
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.priceRed,
-                              height: 1,
+                            Flexible(
+                              child: Text(
+                                '${widget.product.price}',
+                                style: TextStyle(
+                                  fontSize: context.fs(20),
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.priceRed,
+                                  height: 1,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                      Text(
-                        l10n.formatSalesCount(product.salesCount),
-                        style: TextStyle(
-                          fontSize: context.fs(9),
-                          color: context.colors.textTertiary,
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          l10n.formatSalesCount(widget.product.salesCount),
+                          style: TextStyle(
+                            fontSize: context.fs(9),
+                            color: context.colors.textTertiary,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],

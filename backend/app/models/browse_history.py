@@ -1,0 +1,24 @@
+import uuid
+from datetime import datetime
+
+from sqlalchemy import Date, DateTime, ForeignKey, JSON, String
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.core.database import Base
+
+
+class BrowseHistory(Base):
+    __tablename__ = "browse_history"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), index=True, nullable=True
+    )
+    device_id: Mapped[str | None] = mapped_column(String(100), index=True, nullable=True)
+    product_id: Mapped[str] = mapped_column(String(200), index=True, nullable=False)
+    product_snapshot: Mapped[dict] = mapped_column(JSON, nullable=False)
+    viewed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    view_date: Mapped[datetime] = mapped_column(Date, default=datetime.utcnow, index=True)

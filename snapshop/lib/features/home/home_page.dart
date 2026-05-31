@@ -5,8 +5,9 @@ import '../../config/app_colors.dart';
 import '../../config/l10n/app_localizations.dart';
 import '../../config/theme_context.dart';
 import '../../config/route_observer.dart';
-import '../../shared/widgets/search_history_section.dart';
-import '../../shared/widgets/browse_history_section.dart';
+import '../../core/network/api_client.dart';
+import '../../core/history_item.dart';
+import '../settings/settings_provider.dart';
 import 'home_provider.dart';
 import 'main_search_bar.dart';
 import 'gallery_picker_sheet.dart';
@@ -31,6 +32,10 @@ class _HomePageState extends ConsumerState<HomePage>
 
   // 主页刷新（返回时重置为初始状态）
   int _homeRefreshKey = 0;
+
+  // 历史记录数据
+  List<HistoryItem> _historyItems = [];
+  bool _historyLoading = false;
 
   // 进场动效
   late final AnimationController _entranceController;
@@ -73,7 +78,10 @@ class _HomePageState extends ConsumerState<HomePage>
   void didChangeDependencies() {
     super.didChangeDependencies();
     routeObserver.unsubscribe(this);
-    routeObserver.subscribe(this, ModalRoute.of(context)! as ModalRoute<void>);
+    final route = ModalRoute.of(context);
+    if (route != null) {
+      routeObserver.subscribe(this, route);
+    }
   }
 
   @override
@@ -127,6 +135,9 @@ class _HomePageState extends ConsumerState<HomePage>
     // 历史记录关闭时刷新，下次打开为全新状态
     if (!isHistoryOpen && _prevIsHistoryOpen) {
       _historyRefreshKey++;
+    }
+    if (isHistoryOpen && !_prevIsHistoryOpen) {
+      _loadHistory();
     }
     _prevIsHistoryOpen = isHistoryOpen;
 
@@ -254,39 +265,318 @@ class _HomePageState extends ConsumerState<HomePage>
   }
 
   Widget _buildHistoryContent(BuildContext context) {
+    final settings = ref.watch(settingsProvider);
     return SafeArea(
       key: ValueKey('history_$_historyRefreshKey'),
       child: Padding(
         padding: const EdgeInsets.only(right: 50),
-        child: Column(
-          children: [
-            _buildHistoryHeader(context),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: settings.isLoggedIn
+            ? _buildLoggedInHistory(context)
+            : _buildLoginPrompt(context),
+      ),
+    );
+  }
+
+  Widget _buildLoggedInHistory(BuildContext context) {
+    if (_historyLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_historyItems.isEmpty) {
+      return ListView(
+        children: [
+          _buildHistoryHeader(context),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Text(
+                AppLocalizations.of(context).noSearchHistory,
+                style: TextStyle(color: context.colors.textSecondary, fontSize: context.fs(14)),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(child: _buildHistoryHeader(context)),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  AppLocalizations.of(context).searchHistory,
+                  style: TextStyle(
+                    fontSize: context.fs(13),
+                    fontWeight: FontWeight.w600,
+                    color: context.colors.textSecondary,
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => _showClearAllDialog(context),
+                  child: Text(
+                    '清空',
+                    style: TextStyle(
+                      fontSize: context.fs(12),
+                      color: Colors.red.withValues(alpha: 0.8),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              final item = _historyItems[index];
+              return _buildHistoryTile(context, item, index);
+            },
+            childCount: _historyItems.length,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHistoryTile(BuildContext context, HistoryItem item, int index) {
+    final isImage = item.searchType == 'image';
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              ref.read(homeProvider.notifier).setSearchQuery(item.displayText);
+              ref.read(homeProvider.notifier).submitTextSearch(item.displayText);
+              ref.read(homeProvider.notifier).closeHistory();
+              context.push('/results');
+            },
+            onLongPress: () => _showDeleteDialog(context, item),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
                 children: [
-                  SearchHistorySection(
-                    onItemTap: (item) {
-                      ref.read(homeProvider.notifier).setSearchQuery(item);
-                      ref.read(homeProvider.notifier).startRecognition();
-                      ref.read(homeProvider.notifier).closeHistory();
-                      context.push('/results');
-                    },
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: isImage
+                          ? AppColors.brandBlue.withOpacity(0.1)
+                          : context.colors.textSecondary.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      isImage ? Icons.camera_alt_outlined : Icons.search,
+                      size: 20,
+                      color: isImage ? AppColors.brandBlue : context.colors.textSecondary,
+                    ),
                   ),
-                  const SizedBox(height: 24),
-                  BrowseHistorySection(
-                    onItemTap: (product) {
-                      ref.read(homeProvider.notifier).closeHistory();
-                      context.push('/results');
-                    },
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.displayText,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: context.fs(15),
+                            fontWeight: FontWeight.w500,
+                            color: context.colors.textPrimary,
+                          ),
+                        ),
+                        if (item.createdAt != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            _formatHistoryTime(item.createdAt!),
+                            style: TextStyle(fontSize: context.fs(12), color: context.colors.textSecondary),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: isImage
+                          ? AppColors.brandBlue.withOpacity(0.1)
+                          : context.colors.textSecondary.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      isImage ? '拍照' : '搜索',
+                      style: TextStyle(
+                        fontSize: context.fs(11),
+                        color: isImage ? AppColors.brandBlue : context.colors.textSecondary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.chevron_right, size: 18, color: context.colors.textSecondary.withOpacity(0.4)),
                 ],
               ),
             ),
-          ],
+          ),
         ),
+        if (index < _historyItems.length - 1)
+          Divider(height: 1, indent: 56, color: context.colors.divider),
+      ],
+    );
+  }
+
+  void _showClearAllDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('清空搜索记录'),
+        content: const Text('确定要清空所有搜索记录吗？此操作不可恢复。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _doClearAll();
+            },
+            child: const Text('清空', style: TextStyle(color: Colors.red)),
+          ),
+        ],
       ),
     );
+  }
+
+  void _showDeleteDialog(BuildContext context, HistoryItem item) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除记录'),
+        content: Text('确定要删除这条${item.searchType == 'image' ? '拍照识别' : '搜索'}记录吗？'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _doDeleteItem(item);
+            },
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _doDeleteItem(HistoryItem item) async {
+    try {
+      final api = ApiClient();
+      await api.delete('/history/${item.sessionId}');
+      await _loadHistory();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已删除'), duration: Duration(seconds: 1)),
+        );
+      }
+    } catch (e) {
+      debugPrint('[HomePage] 删除搜索记录失败: $e');
+    }
+  }
+
+  Future<void> _doClearAll() async {
+    if (mounted) setState(() { _historyItems = []; _historyRefreshKey++; });
+    try {
+      final api = ApiClient();
+      final resp = await api.delete('/history');
+      await _loadHistory();
+      if (mounted) {
+        final cleared = resp.data is Map ? (resp.data['cleared'] ?? 0) : 0;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('已清空 $cleared 条记录'), duration: const Duration(seconds: 2)),
+        );
+      }
+    } catch (e) {
+      debugPrint('[HomePage] 清空搜索记录失败: $e');
+      await _loadHistory();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('清空失败，请重试'), duration: Duration(seconds: 2)),
+        );
+      }
+    }
+  }
+
+  String _formatHistoryTime(String iso) {
+    try {
+      final dt = DateTime.parse(iso).toLocal();
+      final now = DateTime.now();
+      final diff = now.difference(dt);
+      if (diff.inMinutes < 60) return '${diff.inMinutes}分钟前';
+      if (diff.inHours < 24) return '${diff.inHours}小时前';
+      if (diff.inDays < 7) return '${diff.inDays}天前';
+      return '${dt.month}/${dt.day}';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  Widget _buildLoginPrompt(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.history, size: 48, color: context.colors.textTertiary),
+          const SizedBox(height: 16),
+          Text(
+            l10n.historyLoginPrompt,
+            style: TextStyle(
+              fontSize: context.fs(14),
+              color: context.colors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () => context.push('/login'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.brandBlue,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+            ),
+            child: Text(
+              l10n.historyLoginButton,
+              style: TextStyle(
+                fontSize: context.fs(14),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _loadHistory() async {
+    setState(() => _historyLoading = true);
+    try {
+      final api = ApiClient();
+      final response = await api.get('/history');
+      final data = response.data;
+      List<HistoryItem> items = [];
+      if (data is List) {
+        items = data.map((e) => HistoryItem.fromJson(e as Map<String, dynamic>)).toList();
+      } else if (data is Map && data['items'] is List) {
+        items = (data['items'] as List).map((e) => HistoryItem.fromJson(e as Map<String, dynamic>)).toList();
+      }
+      if (mounted) setState(() { _historyItems = items; _historyLoading = false; });
+    } catch (e) {
+      debugPrint('[HomePage] _loadHistory 失败: $e');
+      if (mounted) setState(() => _historyLoading = false);
+    }
   }
 
   Widget _buildHistoryHeader(BuildContext context) {

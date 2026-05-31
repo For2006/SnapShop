@@ -1,28 +1,39 @@
-# Miscellaneous
-*.class
-*.log
-*.pyc
-*.swp
-.DS_Store
-.atom/
-.build/
-.buildlog/
-.history
-.svn/
-.swiftpm/
-migrate_working_dir/
+# Environment & secrets
+.env
+.env.local
+*.pem
+*.key
 
-# IntelliJ related
-*.iml
-*.ipr
-*.iws
-.idea/
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
 
 # IDE & tools
 .claude/
 .trae/
+.vscode/
+.idea/
+*.iml
+*.ipr
+*.iws
+.atom/
 
-# Flutter/Dart/Pub related
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Flutter/Dart/Pub
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
@@ -32,13 +43,23 @@ migrate_working_dir/
 /build/
 /coverage/
 
-# Symbolication related
+# Symbolication
 app.*.symbols
 
-# Obfuscation related
+# Obfuscation
 app.*.map.json
 
 # Android Studio build artifacts
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Miscellaneous
+*.class
+*.swp
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/

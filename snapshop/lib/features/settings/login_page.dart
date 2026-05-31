@@ -18,6 +18,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _passwordController = TextEditingController();
   bool _isLogin = true;
   bool _obscurePassword = true;
+  bool _loading = false;
 
   @override
   void dispose() {
@@ -26,25 +27,49 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     super.dispose();
   }
 
-  void _submit() {
+  void _showError(String message) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(_isLogin ? '登录失败' : '注册失败'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _submit() async {
     final l10n = AppLocalizations.of(context);
     final phone = _phoneController.text.trim();
     final password = _passwordController.text.trim();
     if (phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.loginPhoneHint)),
-      );
+      _showError(l10n.loginPhoneHint);
       return;
     }
     if (password.length < 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.loginPasswordHint)),
-      );
+      _showError(l10n.loginPasswordHint);
       return;
     }
-    final nickname = '用户${phone.substring(phone.length > 7 ? phone.length - 7 : 0)}';
-    ref.read(settingsProvider.notifier).login(nickname);
-    context.pop();
+    setState(() => _loading = true);
+    String? error;
+    if (_isLogin) {
+      error = await ref.read(settingsProvider.notifier).login(phone, password);
+    } else {
+      error = await ref.read(settingsProvider.notifier).register(phone, password);
+    }
+    setState(() => _loading = false);
+    if (error != null && mounted) {
+      _showError(error);
+      return;
+    }
+    if (mounted) {
+      context.pop();
+    }
   }
 
   @override
@@ -182,20 +207,29 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           width: double.infinity,
                           height: 50,
                           child: FilledButton(
-                            onPressed: _submit,
+                            onPressed: _loading ? null : _submit,
                             style: FilledButton.styleFrom(
                               backgroundColor: AppColors.brandBlue,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14),
                               ),
                             ),
-                            child: Text(
-                              _isLogin ? l10n.loginButton : l10n.registerButton,
-                              style: TextStyle(
-                                fontSize: context.fs(16),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                            child: _loading
+                                ? const SizedBox(
+                                    width: 22,
+                                    height: 22,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Text(
+                                    _isLogin ? l10n.loginButton : l10n.registerButton,
+                                    style: TextStyle(
+                                      fontSize: context.fs(16),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                           ),
                         ),
                         const SizedBox(height: 20),

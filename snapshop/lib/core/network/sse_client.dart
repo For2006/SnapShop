@@ -1,14 +1,20 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 
 class SseClient {
   final String url;
   final Map<String, String> headers;
+  final Map<String, String> queryParams;
   HttpClient? _client;
   StreamSubscription? _subscription;
 
-  SseClient({required this.url, this.headers = const {}});
+  SseClient({
+    required this.url,
+    this.headers = const {},
+    this.queryParams = const {},
+  });
 
   Stream<Map<String, dynamic>> connect() {
     final controller = StreamController<Map<String, dynamic>>();
@@ -21,7 +27,8 @@ class SseClient {
   Future<void> _connect(StreamController<Map<String, dynamic>> controller) async {
     try {
       _client = HttpClient();
-      final request = await _client!.getUrl(Uri.parse(url));
+      final uri = Uri.parse(url).replace(queryParameters: queryParams);
+      final request = await _client!.getUrl(uri);
 
       headers.forEach((key, value) {
         request.headers.set(key, value);
@@ -47,7 +54,9 @@ class SseClient {
                 try {
                   final parsed = jsonDecode(jsonStr) as Map<String, dynamic>;
                   controller.add(parsed);
-                } catch (_) {}
+                } catch (e) {
+                  debugPrint('[SseClient] SSE parse error: $e');
+                }
               }
             }
           }

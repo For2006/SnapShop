@@ -608,11 +608,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
     final l10n = AppLocalizations.of(context);
     final settingsState = ref.watch(settingsProvider);
 
+    final brightness = Theme.of(context).brightness;
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
+      value: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
-        statusBarBrightness: Brightness.light,
+        statusBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+        statusBarBrightness: brightness == Brightness.dark ? Brightness.dark : Brightness.light,
       ),
       child: Scaffold(
         backgroundColor: context.colors.secondaryBg,
@@ -867,7 +868,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
     return GestureDetector(
       onTap: () {
         if (settingsState.isLoggedIn) {
-          _showProfileEditSheet();
+          context.push('/profile');
         } else {
           context.push('/login');
         }
@@ -974,14 +975,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                           color: Colors.white.withValues(alpha: 0.65),
                         ),
                       ),
-                      const SizedBox(height: 14),
-                      Row(
-                        children: [
-                          _buildStat('12', l10n.settingsFavorites),
-                          _buildDivider(),
-                          _buildStat('8', l10n.settingsFootprints),
-                        ],
-                      ),
+                      if (settingsState.isLoggedIn) ...[
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            _profileStat('${settingsState.favoriteCount}', l10n.settingsFavorites),
+                            _profileDivider(),
+                            _profileStat('${settingsState.browseCount}', l10n.settingsFootprints),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -999,36 +1002,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
     );
   }
 
-  Widget _buildStat(String value, String label) {
+  Widget _profileStat(String value, String label) {
     return Column(
       children: [
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
-          ),
-        ),
+        Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white)),
         const SizedBox(height: 2),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.white.withValues(alpha: 0.55),
-          ),
-        ),
+        Text(label, style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.55))),
       ],
     );
   }
 
-  Widget _buildDivider() {
-    return Container(
-      width: 1,
-      height: 24,
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      color: Colors.white.withValues(alpha: 0.12),
-    );
+  Widget _profileDivider() {
+    return Container(width: 1, height: 24, margin: const EdgeInsets.symmetric(horizontal: 16), color: Colors.white.withValues(alpha: 0.12));
   }
 
   Widget _buildSection({

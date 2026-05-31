@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -64,7 +65,7 @@ class _MainSearchBarState extends ConsumerState<MainSearchBar> {
       if (value.trim().isEmpty || _isSearching) return;
       setState(() => _isSearching = true);
       ref.read(homeProvider.notifier).setSearchQuery(value);
-      await ref.read(homeProvider.notifier).startRecognition();
+      await ref.read(homeProvider.notifier).submitTextSearch(value);
       if (!mounted) return;
       setState(() => _isSearching = false);
     }
@@ -73,8 +74,7 @@ class _MainSearchBarState extends ConsumerState<MainSearchBar> {
       await submitSearch();
       if (!mounted) return;
       FocusScope.of(context).unfocus();
-      await context.push('/results');
-      _textController.clear();
+      context.push('/results');
     }
 
     return Container(
@@ -115,7 +115,7 @@ class _MainSearchBarState extends ConsumerState<MainSearchBar> {
                 FocusScope.of(context).unfocus();
                 final path = await SystemCamera.takePicture();
                 if (path != null && mounted) {
-                  ref.read(homeProvider.notifier).startRecognition();
+                  ref.read(homeProvider.notifier).startRecognition(imageFile: File(path));
                   context.push('/results', extra: path);
                 }
               },

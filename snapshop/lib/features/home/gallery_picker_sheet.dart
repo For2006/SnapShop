@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -261,7 +262,7 @@ class _GalleryPickerSheetState extends ConsumerState<GalleryPickerSheet>
         final picked = await picker.pickImage(source: ImageSource.gallery);
         if (picked != null && context.mounted) {
           ref.read(homeProvider.notifier).closeGallery();
-          ref.read(homeProvider.notifier).startRecognition();
+          ref.read(homeProvider.notifier).startRecognition(imageFile: File(picked.path));
           context.push('/results');
         }
       },
@@ -309,7 +310,7 @@ class _GalleryPickerSheetState extends ConsumerState<GalleryPickerSheet>
         final file = await asset.file;
         if (file != null && mounted) {
           ref.read(homeProvider.notifier).closeGallery();
-          ref.read(homeProvider.notifier).startRecognition();
+          ref.read(homeProvider.notifier).startRecognition(imageFile: file);
           context.push('/results');
         }
       },

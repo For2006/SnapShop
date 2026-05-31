@@ -1,0 +1,82 @@
+# ── 国内 Docker Hub 镜像加速配置 ──────────────────────────────
+# 在 Docker Desktop 的 Settings → Docker Engine 或
+# /etc/docker/daemon.json 中添加 registry-mirrors：
+# {
+#   "registry-mirrors": [
+#     "https://docker.m.daocloud.io",
+#     "https://dockerhub.timeweb.cloud",
+#     "https://mirror.ccs.tencentyun.com"
+#   ]
+# }
+# ──────────────────────────────────────────────────────────────
+
+services:
+  backend:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      # 覆盖 Docker 内部网络地址（.env 中是 localhost，Docker 里需用服务名）
+      - TZ=Asia/Shanghai
+      - DATABASE_URL=postgresql+asyncpg://snapshop:snapshop123@db:5432/snapshop
+      - REDIS_URL=redis://redis:6379/0
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    volumes:
+      - ./app:/app/app
+    restart: unless-stopped
+
+  db:
+    image: postgres:16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: snapshop
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-snapshop123}
+      POSTGRES_DB: snapshop
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U snapshop"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - miniodata:/data
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  miniodata:

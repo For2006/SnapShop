@@ -102,7 +102,7 @@ Flutter App                 FastAPI                   火山方舟          Post
     │    products[]}           │                         │                 │
     │                          │                         │                 │
     │   [用户点击"只看旗舰店"]   │                         │                 │
-    │── POST /filter/stream ──▶│                         │                 │
+    │── GET /filter/stream ──▶│                         │                 │
     │   {session_id,           │                         │                 │
     │    filter_text}          │                         │                 │
     │                          │── LLM 解析筛选条件 ────▶│                 │
@@ -142,79 +142,91 @@ Flutter App                 FastAPI                   PostgreSQL
 
 ## 3. Flutter 前端架构
 
-### 3.1 首页交互设计：底部搜索栏主导交互
+### 3.1 首页交互设计：三层布局 + 滑动手势抽屉
 
-**首页布局**：底部搜索栏，集成相机图标和相册按钮
+**首页布局**：顶部按钮栏 + 中央品牌 Logo 区域 + 底部搜索栏（三层视觉结构），支持向右滑动手势打开历史记录抽屉面板。
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                                                     │
-│                                                     │
-│              [ 空白区域 / 历史搜索记录展示 ]          │
-│                                                     │
-│                                                     │
-├─────────────────────────────────────────────────────┤
-│  📷  │  搜索商品...                      │  🖼️  │  ← 底部搜索栏：左侧相机图标，右侧相册按钮
-└─────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────┐
+│ ☰                               ⚙             │ ← 顶部：菜单按钮(打开历史抽屉) + 设置按钮
+├─────────────────────────────────────────────────┤
+│                                                 │
+│            ＳｎａｐＳｈｏｐ                        │ ← 品牌渐变 Logo
+│         拍照识物 · 智能比价                      │ ← 品牌标语
+│                                                 │
+│          [ 品牌蓝紫光晕脉冲背景 ]                 │ ← 进场动效背景
+├─────────────────────────────────────────────────┤
+│  📷  │  搜索商品...                 │  🖼️     │ ← 底部搜索栏：相机 + 输入 + 搜索 + 相册
+└─────────────────────────────────────────────────┘
+
+← 向右滑动或点击 ☰ → 主页右移 305px
+┌──────────────────────┬──────────────────────────┐
+│                      │  ○ 历史记录              │
+│  [ 圆角 + 阴影 ]      │  搜索记录 · 浏览记录     │
+│                      │                          │
+└──────────────────────┴──────────────────────────┘
 ```
+
+**进场动效**：页面加载时，品牌 Logo 从上方下落弹入（easeOutBack 缓动 + 缩放淡入），搜索栏从下方上浮走入，品牌蓝紫光晕背景随时间逐渐消退。返回首页时动画重新播放。
 
 **交互状态1：默认状态**
-- 底部固定显示搜索栏，左侧相机图标，右侧相册按钮
-- 中间区域展示历史搜索记录或推荐内容
+- 顶部固定菜单按钮（☰，打开历史抽屉）和设置按钮（⚙，跳转设置页）
+- 中央展示 SnapShop 品牌渐变 Logo（ShaderMask 蓝紫渐变）和标语"拍照识物 · 智能比价"
+- 底部固定显示搜索栏，左侧相机图标，右侧相册按钮，中间文字输入区
+- 进场动效：Logo 下落弹入 + 搜索栏上浮走入 + 光晕消退
 
 **交互状态2：点击左侧相机图标**
-- 直接唤起系统相机进行拍照
-- 拍摄完成后进入图片预览页，确认后上传识别
+- 直接唤起系统原生相机进行拍照
+- 拍摄完成后跳转识别结果页
 
 **交互状态3：点击右侧相册按钮**
-- 底部搜索栏平滑向上抬升
-- 搜索栏下方露出系统相册图片选择网格
-- 用户选择图片后，搜索栏回落至底部，图片进入预览确认流程
+- 底部搜索栏平滑向上抬升至距顶部 172px
+- 搜索栏下方露出相册图片网格（AnimatedSlide，纵向滑入）
+- 相册按钮变为关闭图标，再次点击关闭相册
 
-**三种启动路径**：
-1. **路径A：文字搜索** → 直接在底部搜索栏输入商品描述文字 → 跳过VLM识别，直接走关键词检索
-2. **路径B：拍照识物** → 点击底部搜索栏左侧相机图标 → 唤起相机 → 拍摄商品 → 上传识别
-3. **路径C：相册选图** → 点击底部搜索栏右侧相册按钮 → 底部搜索栏抬升 → 下方选择图片 → 上传识别
+**交互状态4：点击菜单按钮或向右滑动手势**
+- 主页整体沿 X 轴向右平移（0→305px），圆角半径从 0→24px，左侧增加阴影
+- 右侧露出历史记录抽屉面板，包含搜索记录区域和浏览记录区域
+- 点击半透明遮罩或向左滑动可关闭抽屉
+- 抽屉关闭时历史记录状态刷新，下次打开为全新状态
+
+**四种启动路径**：
+1. **路径A：文字搜索** → 在搜索栏输入关键词 → 点击发送按钮 → 跳转识别结果页（跳过VLM，直接走关键词检索）
+2. **路径B：拍照识物** → 点击搜索栏左侧相机图标 → 唤起系统相机 → 拍摄商品 → 跳转识别页
+3. **路径C：相册选图** → 点击搜索栏右侧相册按钮 → 搜索栏抬升 → 选择图片 → 上传识别
+4. **路径D：历史抽屉** → 向右滑动或点击菜单按钮 → 打开历史抽屉 → 选择搜索/浏览记录 → 跳转结果页
 
 ### 3.2 项目分层
 
 ```
 lib/
 ├── main.dart                          # 入口
-├── app.dart                           # MaterialApp + 主题 + 路由
+├── app.dart                           # MaterialApp + 主题 + 路由 + 国际化
 ├── config/
-│   ├── env.dart                       # 环境配置（API BaseURL、图片上传限制等）
-│   └── router.dart                    # GoRouter 路由表
+│   ├── app_colors.dart                # 全局颜色常量
+│   ├── app_theme.dart                 # ThemeData 工厂（浅色/深色 + 字体缩放）
+│   ├── theme_context.dart             # 上下文感知颜色 + 字体缩放扩展
+│   ├── app_router.dart                # GoRouter 路由表
+│   ├── route_observer.dart            # 路由观察者
+│   └── l10n/
+│       └── app_localizations.dart     # 中英文双语翻译映射
 ├── core/
 │   ├── network/
-│   │   ├── api_client.dart            # dio 封装 + JWT 拦截器
-│   │   └── sse_client.dart            # SSE 流消费（自然语言筛选）
-│   ├── storage/
-│   │   └── image_cache.dart           # 商品缩略图本地缓存
-│   ├── platform/                       # 三端平台适配
-│   │   ├── camera_adapter.dart        # 统一相机接口抽象
-│   │   ├── android_camera.dart        # Android CameraX 实现
-│   │   ├── ios_camera.dart            # iOS AVFoundation 实现
-│   │   ├── harmony_camera.dart        # 鸿蒙 ohos.camera 实现（远期扩展）
-│   │   └── gallery_adapter.dart       # 相册选择抽象适配
-│   └── utils/
-│       ├── image_compress.dart        # 图片压缩（上传前压缩至 ≤2MB）
-│       └── debouncer.dart             # 输入防抖
+│   │   ├── api_client.dart            # dio 封装
+│   │   └── sse_client.dart            # SSE 流消费
+│   ├── utils/
+│   │   ├── image_compress.dart        # 图片压缩
+│   │   ├── debouncer.dart             # 输入防抖
+│   │   └── system_camera.dart         # 系统相机抽象
 ├── features/
-│   ├── home/                          # 首页模块（搜索栏主导交互）
+│   ├── home/                          # 首页模块
 │   │   ├── home_page.dart             # 首页主界面
 │   │   ├── home_provider.dart         # 首页状态管理
-│   │   ├── text_search_provider.dart  # 纯文字搜索状态管理
-│   │   ├── main_search_bar.dart       # 主导航搜索栏组件（相机图标+相册按钮）
-│   │   ├── gallery_picker_sheet.dart  # 底部抬升相册选择面板
-│   │   └── search_history.dart        # 历史搜索记录组件
-│   ├── camera/                        # 相机模块
-│   │   ├── camera_page.dart           # 独立相机拍照页
-│   │   ├── camera_controller.dart     # 相机状态管理（Riverpod）
-│   │   └── image_preview.dart         # 拍照后预览与裁剪
+│   │   ├── main_search_bar.dart       # 底部搜索栏
+│   │   └── gallery_picker_sheet.dart  # 底部抬升相册选择
 │   ├── recognition/                   # 识别结果模块
 │   │   ├── recognition_page.dart      # 识别结果展示
-│   │   ├── recognition_provider.dart  # 识别状态 + 纠错状态
+│   │   ├── recognition_provider.dart  # 识别状态管理
 │   │   ├── attribute_edit_sheet.dart  # 属性修正弹层
 │   │   └── widgets/
 │   │       └── attribute_chip.dart    # 属性标签组件
@@ -222,19 +234,30 @@ lib/
 │   │   ├── suggestion_card.dart       # 单个建议卡片
 │   │   └── suggestion_list.dart       # 卡片横向滚动列表
 │   ├── product_list/                  # 商品列表模块
-│   │   ├── product_list_page.dart     # 商品列表页
 │   │   ├── product_card.dart          # 商品卡片
-│   │   ├── price_summary_bar.dart      # 各平台最低价/均价汇总条
-│   │   ├── product_provider.dart      # 列表状态 + 排序 + 筛选
+│   │   ├── price_summary_bar.dart     # 各平台价格汇总条
+│   │   ├── product_provider.dart      # 列表状态管理
 │   │   └── sort_bar.dart              # 排序栏
-│   └── filter/                        # 自然语言筛选模块
-│       ├── filter_input_bar.dart      # 筛选输入框 + SSE 流式结果
-│       └── filter_provider.dart       # 筛选状态管理
-└── shared/
-    └── widgets/
-        ├── loading_indicator.dart     # 识别中 / 比价中 loading
-        ├── error_retry.dart           # 错误重试组件
-        └── platform_badge.dart        # 平台来源标签
+│   ├── filter/                        # 自然语言筛选模块
+│   │   ├── filter_input_bar.dart      # 筛选输入框
+│   │   └── filter_provider.dart       # 筛选状态管理
+├── history/
+  │   └── history_page.dart
+  ├── settings/
+  │   ├── settings_page.dart
+  │   ├── settings_provider.dart
+  │   └── login_page.dart
+  ├── favorites/
+  │   └── favorites_tab.dart
+  ├── profile/
+  │   ├── profile_page.dart
+  │   └── browse_list_tab.dart
+  └── shared/
+      └── widgets/
+          ├── loading_indicator.dart
+          ├── error_retry.dart
+          ├── platform_badge.dart
+          └── search_history_section.dart
 ```
 
 ### 3.3 SSE 流式局部刷新机制
@@ -257,6 +280,54 @@ filter_provider.dart 中 Riverpod 配合 ListView.builder 实现增量渲染：
 | UI 渲染 | 原生 Widget + `cached_network_image` + 瀑布流布局（`flutter_staggered_grid_view`）增量渲染 | 商品卡片缩略图加载优化 + PRD 4.6.4 瀑布流布局要求；SSE 逐条推送无全列表闪烁 |
 | 属性修正 | BottomSheet + 自由文本输入 | 用户点击属性标签弹出修改面板，支持任意文本修正后重新检索 |
 | 平台差异化 | Platform Channel 抽象 | 相机权限申请 / 图片存储路径 / 推送通知通过统一 Channel 接口适配 |
+| 主题系统 | `ThemeAwareColors` + `context.colors` / `context.fs()` 扩展 | 根据 `Brightness` 自动切换浅/深色值；字体大小通过 `SettingsProvider` 全局缩放，一处修改处处生效 |
+| 国际化 | `AppLocalizations` + `LocalizationsDelegate` | 内联翻译映射（`_localizedStrings` Map），getter 自动按语言返回对应文案；Riverpod + `SharedPreferences` 持久化语言选择 |
+| 设置状态 | 统一 `SettingsNotifier` (Riverpod StateNotifier) | 集中管理语言/外观/字体/通知偏好/用户信息/登录状态，`SharedPreferences` 持久化全部设置键值 |
+
+### 3.5 设置模块架构
+
+settings_provider.dart 中的 `SettingsNotifier` 是整个应用的全局设置状态中心，管理以下状态域：
+- **语言**：`LocaleOption` (zh / en)，切换后 `app.dart` 中的 `MaterialApp.router.locale` 立即响应
+- **外观**：`ThemeModeOption` (light / dark / system)，切换后 `MaterialApp.router.themeMode` 切换
+- **字体**：`FontSizeOption` (small 0.85x / standard 1.0x / large 1.15x)，切换后 `app_theme.dart` 重算 textTheme 字号
+- **通知**：`pushEnabled` / `inAppAlertsEnabled` (bool)，SharedPreferences 持久化
+- **用户信息**：`avatarPath` / `nickname` / `bio` / `isLoggedIn`，支持头像选取 (image_picker)、昵称和简介编辑
+
+settings_page.dart 使用底部弹窗（showModalBottomSheet）模式展示各设置选项，与语言弹窗风格统一：
+- `_showLanguagePicker()` — 语言选择弹窗
+- `_showAppearancePicker()` — 外观选择弹窗
+- `_showFontSizePicker()` — 字体大小选择弹窗（含 "Aa" 预览效果）
+- `_showNotificationPicker()` — 消息通知偏好弹窗
+- `_showClearCacheDialog()` — 缓存清理确认对话框
+- `_showProfileEditSheet()` — ~~个人信息编辑弹窗~~（已删除）
+- 个人资料卡片：未登录点击跳转 `/login`，已登录点击跳转 `/profile` 个人中心页（收藏+浏览记录）。卡片在已登录时显示从 `/user/stats` API 获取的收藏数和浏览数统计。
+
+login_page.dart 提供登录/注册页面（对接后端 JWT 认证 + bcrypt 密码）：
+- 手机号 + 密码输入，调用 POST /auth/login 和 POST /auth/register 接口
+- 登录后 `isLoggedIn = true`，ApiClient 自动注入 Bearer token
+- 退出登录时弹出确认对话框，确认后清除 token 和所有用户数据
+
+### 3.6 主题上下文系统
+
+theme_context.dart 提供两个 `BuildContext` 扩展方法，使所有 widget 自适应主题和字体设置：
+
+- **`context.colors`**：`ThemeAwareColors` 实例，根据 `Theme.of(context).brightness` 自动在浅色/深色色值间切换。覆盖 12 种常用颜色属性（primaryBg、secondaryBg、surface、cardBg、textPrimary、textSecondary、textTertiary、divider、border、searchBarBg、searchIconBg、white）。品牌色（brandBlue/Purple、priceRed）、语义色（warningAmber/successGreen/errorRed）、平台色（taobaoOrange/jdRed/pddRed）保持固定，不随主题变化。
+- **`context.fs(double base)`**：从 `SettingsProvider` 读取当前 `FontSizeOption.scale` 并返回 `base * scale`。替代所有硬编码 `fontSize: N`，使字体大小设置全局即时生效。
+
+app_theme.dart 中的 `lightTheme()` 和 `darkTheme()` 方法通过 `_buildTheme(Brightness, double fontSizeScale)` 统一构建 ThemeData，textTheme 中所有字号乘以 fontSizeScale 参数。
+
+### 3.7 国际化系统
+
+app_localizations.dart 中的 `AppLocalizations` 类使用内联翻译映射 `_localizedStrings`，通过 `AppLocalizationsDelegate` 注册为 Flutter 的 Localizations delegate。
+
+翻译键管理采用 getter 模式：
+```dart
+String get settingsTitle => get('settings_title');
+```
+
+语言切换通过 `SettingsNotifier.setLocale()` → `await prefs.setString('app_locale', option.name)` 持久化，`app.dart` 中的 `locale: settingsState.localeOption.locale` 即时响应。
+
+目前已覆盖 70+ 翻译键，覆盖设置页、加载页、错误页、搜索栏、相册、识别结果、属性编辑、筛选、排序、价格汇总、缓存清理、通知偏好、登录页、个人资料编辑等全部 UI 文案。
 
 ---
 
@@ -276,7 +347,10 @@ backend/app/
 │       ├── products.py                # GET /products — 商品列表/比价
 │       ├── filter.py                  # POST /filter/stream — SSE 自然语言筛选
 │       ├── suggestions.py             # POST /suggestions — 点击建议卡片后续
-│       └── auth.py                    # 注册/登录（可选，MVP 可匿名）
+│       ├── auth.py                    # 注册/登录（可选，MVP 可匿名）
+│       ├── favorites.py
+│       ├── browse.py
+│       ├── stats.py
 ├── core/
 │   ├── security.py                    # JWT（或设备指纹）签发与验证
 │   ├── rate_limit.py                  # 按用户/设备限流中间件
@@ -284,7 +358,11 @@ backend/app/
 ├── models/
 │   ├── search_session.py              # 搜索会话
 │   ├── recognition_result.py          # 识别结果
-│   └── product.py                     # 商品记录
+│   ├── product.py                     # 商品记录
+│   ├── user.py
+│   ├── favorite.py
+│   ├── browse_history.py
+│   ├── filter_action.py
 ├── schemas/
 │   ├── recognize.py                   # 请求/响应 Schema
 │   ├── search.py                      # 纯文字搜索请求/响应 Schema
@@ -296,16 +374,18 @@ backend/app/
 │   ├── search_service.py              # 多平台商品检索
 │   ├── comparison_service.py          # 跨平台比价聚合
 │   ├── suggestion_service.py          # 建议卡片生成
-│   └── filter_service.py              # 自然语言筛选
+│   ├── filter_service.py              # 自然语言筛选
+│   ├── browse_recorder.py
+│   └── product_serializer.py
 ├── clients/
-│   ├── base_platform_client.py         # 电商平台抽象基类
-│   ├── ark_vlm_client.py              # 火山方舟 VLM API 封装
-│   ├── ark_llm_client.py              # 火山方舟 LLM API 封装
-│   ├── taobao_client.py               # 淘宝/天猫电商平台 API 客户端
-│   ├── jd_client.py                    # 京东电商平台 API 客户端
-│   └── pdd_client.py                   # 拼多多电商平台 API 客户端
-└── data/
-    └── seed_products.json              # 种子商品库
+│   ├── base_platform_client.py
+│   ├── _base_ark.py
+│   ├── ark_vlm_client.py
+│   ├── ark_llm_client.py
+│   ├── real_jd_client.py
+│   ├── real_pdd_client.py
+│   └── strategy/
+│       └── llm_fallback_strategy.py
 ```
 
 ### 4.2 核心设计决策
@@ -329,7 +409,7 @@ RecognitionService
     └── (返回识别结果后触发)
 
 SearchService                          ◄── 由 RecognitionService 结果触发
-    ├── TaobaoClient                 ──► 淘宝/天猫 API 商品检索
+    ├── TaobaoClient                 ──► 淘宝/天猫 API 商品检索（淘宝/天猫客户端暂未实现，远期规划）
     ├── JDClient                     ──► 京东 API 商品检索
     └── PDDClient                    ──► 拼多多 API 商品检索
     └── AsyncSession                  ──► PostgreSQL (商品结果持久化)
@@ -351,41 +431,9 @@ FilterService                          ◄── 用户主动触发
                                           供FilterService解析时作为System Prompt的补充基准，防止AI后续对话产生幻觉）
 ```
 
-### 4.4 Mock 种子商品库结构说明
+### 4.4 Mock 种子商品库
 
-`data/seed_products.json` 预置 10+ 类目，200+ 样例商品，用于演示兜底和开发测试：
-
-```json
-{
-  "version": "1.0",
-  "categories": [
-    {
-      "category": "运动鞋",
-      "products": [
-        {
-          "id": "seed_001",
-          "name": "Nike Air Max 270 男子气垫跑步鞋",
-          "price": 899.00,
-          "original_price": 1199.00,
-          "platform": "taobao",
-          "shop_name": "Nike官方旗舰店",
-          "shop_type": "official",
-          "rating": 4.9,
-          "sales_count": 12580,
-          "image_url": "https://example.com/nike_air_max.jpg",
-          "product_url": "https://example.com/product/seed_001",
-          "attributes": {
-            "brand": "Nike",
-            "color": "黑色",
-            "style": "运动",
-            "material": "网面"
-          }
-        }
-      ]
-    }
-  ]
-}
-```
+> 此前 `data/seed_products.json` 用于演示兜底和开发测试，该文件已在后续迭代中删除。当前 Mock 数据改为通过拼多多/京东真实 API 拉取后缓存提供。
 
 ### 4.5 同款对齐与轻量级 Rerank 机制
 
@@ -682,6 +730,24 @@ SearchSession (1) ──────── (1) RecognitionResult
                      │  created_at
 ```
 
+```
+User ────────── (1) Favorite
+│               │  id (UUID)
+│  id (UUID)     │  user_id (FK)
+│  phone         │  product_id
+│  hashed_password│  product_snapshot (JSONB)
+│  nickname      │  created_at
+│  avatar_url    │
+│  bio          └── (N) BrowseHistory
+│  created_at           │  id (UUID)
+                        │  user_id (FK, nullable)
+                        │  device_id (nullable)
+                        │  product_id
+                        │  product_snapshot (JSONB)
+                        │  viewed_at
+                        │  view_date
+```
+
 ### 6.2 关键表结构
 
 **recognition_results**
@@ -881,17 +947,25 @@ flutter build ohos --release         # → .hap → AppGallery / 企业分发
 | POST | `/api/v1/recognize` | 图片上传+识别 | `multipart/form-data: image` | `{session_id, recognition, suggestions[], products[], price_summary[]}` |
 | POST | `/api/v1/search` | 纯文字搜索（跳过VLM） | `{keywords: ["黑色蓝牙耳机"]}` | `{session_id, suggestions[], products[], price_summary[]}` |
 | GET | `/api/v1/products/{session_id}` | 获取商品列表 | query: `sort_by`, `page`, `size` | `{products[], total, page, price_summary[]}` |
-| POST | `/api/v1/products/{session_id}/filter` | 非流式筛选 | `{filter_text}` | `{products[], applied_filters}` |
-| POST | `/api/v1/filter/stream` | **SSE 自然语言筛选** | `{session_id, filter_text}` | SSE stream: `data: {product}\n\n` |
+| POST | `/api/v1/products/{session_id}/filter` | 非流式筛选（远期规划） | `{filter_text}` | `{products[], applied_filters}` |
+| GET | `/api/v1/filter/stream` | **SSE 自然语言筛选** | `{session_id, filter_text}` | SSE stream: `data: {product}\n\n` |
 | POST | `/api/v1/suggestions/action` | 点击建议卡片 | `{session_id, card_id, params}` | `{products[]}` |
 | PATCH | `/api/v1/recognize/{session_id}/attributes` | 修正识别属性（纯结构化操作） | `{attribute, new_value}` | `{updated_attributes, products[]}` |
 | GET | `/api/v1/history` | 用户搜索历史 | query: `page` | `{sessions[]}` |
+| POST | `/api/v1/auth/register` | 用户注册 | `{phone, password}` | `{access_token, token_type, user}` |
+| POST | `/api/v1/auth/login` | 用户登录 | `{phone, password}` | `{access_token, token_type, user}` |
+| POST | `/api/v1/favorites` | 添加收藏 | `{product_id, product_snapshot}` | `FavoriteItemResponse` |
+| DELETE | `/api/v1/favorites/{product_id}` | 取消收藏 | — | `{message}` |
+| GET | `/api/v1/favorites` | 收藏列表 | query: `page`, `size` | `{items[], total}` |
+| POST | `/api/v1/browse` | 记录浏览 | `{product_id, product_snapshot}` | `{message}` |
+| GET | `/api/v1/browse` | 浏览记录 | query: `page`, `size` | `{items[], total}` |
+| GET | `/api/v1/user/stats` | 用户统计 | — | `{favorite_count, browse_count}` |
 
 ### 9.2 SSE 筛选流协议
 
 ```
 # 请求
-POST /api/v1/filter/stream
+GET /api/v1/filter/stream
 Content-Type: application/json
 
 {

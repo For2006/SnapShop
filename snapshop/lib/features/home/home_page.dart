@@ -27,18 +27,13 @@ class _HomePageState extends ConsumerState<HomePage>
   bool _isUserDragging = false;
   double _dragCumulativeDelta = 0.0;
 
-  // 历史记录刷新
   bool _prevIsHistoryOpen = false;
   int _historyRefreshKey = 0;
-
-  // 主页刷新（返回时重置为初始状态）
   int _homeRefreshKey = 0;
 
-  // 历史记录数据
   List<HistoryItem> _historyItems = [];
   bool _historyLoading = false;
 
-  // 进场动效
   late final AnimationController _entranceController;
   late final Animation<double> _brandAnim;
   late final Animation<double> _topBtnFadeAnim;
@@ -89,9 +84,7 @@ class _HomePageState extends ConsumerState<HomePage>
   void didPopNext() {
     _entranceController.reset();
     _entranceController.forward();
-    // 返回主页时收起键盘
     FocusScope.of(context).unfocus();
-    // 重置为初始状态
     _homeRefreshKey++;
     final notifier = ref.read(homeProvider.notifier);
     if (ref.read(homeProvider).isGalleryOpen) {
@@ -129,11 +122,9 @@ class _HomePageState extends ConsumerState<HomePage>
 
   @override
   Widget build(BuildContext context) {
-    final homeState = ref.watch(homeProvider);
-    final isGalleryOpen = homeState.isGalleryOpen;
-    final isHistoryOpen = homeState.isHistoryOpen;
+    final isGalleryOpen = ref.watch(homeProvider.select((s) => s.isGalleryOpen));
+    final isHistoryOpen = ref.watch(homeProvider.select((s) => s.isHistoryOpen));
 
-    // 历史记录关闭时刷新，下次打开为全新状态
     if (!isHistoryOpen && _prevIsHistoryOpen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _historyRefreshKey++;
@@ -147,7 +138,6 @@ class _HomePageState extends ConsumerState<HomePage>
       });
     }
 
-    // 非拖拽时由 state 驱动动画
     if (!_isUserDragging) {
       if (isHistoryOpen && _drawerController.isDismissed) {
         _drawerController.animateTo(1.0,
@@ -164,119 +154,121 @@ class _HomePageState extends ConsumerState<HomePage>
 
     final cardBody = _buildCardBody(context, isGalleryOpen, isHistoryOpen);
 
-    return PopScope(
-      canPop: !isGalleryOpen && !isHistoryOpen,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) {
-          if (isGalleryOpen) {
-            ref.read(homeProvider.notifier).closeGallery();
-          } else if (isHistoryOpen) {
-            ref.read(homeProvider.notifier).closeHistory();
+    return RepaintBoundary(
+      child: PopScope(
+        canPop: !isGalleryOpen && !isHistoryOpen,
+        onPopInvokedWithResult: (didPop, result) {
+          if (!didPop) {
+            if (isGalleryOpen) {
+              ref.read(homeProvider.notifier).closeGallery();
+            } else if (isHistoryOpen) {
+              ref.read(homeProvider.notifier).closeHistory();
+            }
           }
-        }
-      },
-      child: Scaffold(
-        backgroundColor: context.colors.primaryBg,
-        resizeToAvoidBottomInset: false,
-        body: Stack(
-          fit: StackFit.expand,
-          clipBehavior: Clip.hardEdge,
-          children: [
-            _buildHistoryContent(context),
-            GestureDetector(
-              onHorizontalDragStart: (_) {
-                _dragStartValue = _drawerController.value;
-                _dragCumulativeDelta = 0;
-                _isUserDragging = true;
-              },
-              onHorizontalDragUpdate: (details) {
-                _dragCumulativeDelta += details.primaryDelta ?? 0;
-                final newValue = (_dragStartValue + _dragCumulativeDelta / 305.0).clamp(0.0, 1.0);
-                _drawerController.value = newValue;
-              },
-              onHorizontalDragEnd: (details) {
-                _isUserDragging = false;
-                final velocity = details.primaryVelocity ?? 0;
-                final goOpen = (velocity.abs() > 300 && velocity > 0) ||
-                               (velocity.abs() <= 300 && _drawerController.value > 0.5);
-                if (goOpen) {
-                  _drawerController.animateTo(1.0,
-                    curve: Curves.easeOutCubic,
-                    duration: const Duration(milliseconds: 200),
-                  );
-                  ref.read(homeProvider.notifier).openHistory();
-                } else {
-                  _drawerController.animateTo(0.0,
-                    curve: Curves.easeOutCubic,
-                    duration: const Duration(milliseconds: 200),
-                  );
-                  ref.read(homeProvider.notifier).closeHistory();
-                }
-              },
-              onHorizontalDragCancel: () {
-                _isUserDragging = false;
-              },
-              child: AnimatedBuilder(
-                animation: _drawerController,
-                child: cardBody,
-                builder: (context, child) {
-                  final v = _drawerController.value;
-                  final offset = 305 * v;
-                  final radius = 24 * v;
-                  final shadowOpacity = 0.25 * v;
-                  return Transform.translate(
-                    offset: Offset(offset, 0),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: context.colors.primaryBg,
-                        borderRadius: radius > 0 ? BorderRadius.circular(radius) : null,
-                        boxShadow: shadowOpacity > 0
-                            ? [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: shadowOpacity),
-                                  blurRadius: 24,
-                                  offset: const Offset(-8, 0),
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(radius),
-                        clipBehavior: Clip.antiAlias,
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            RepaintBoundary(child: child!),
-                            if (v > 0.01)
-                              Positioned.fill(
-                                child: GestureDetector(
-                                  onTap: _toggleHistory,
-                                  child: Container(
-                                    color: Colors.white.withValues(alpha: 0.15 * v),
+        },
+        child: Scaffold(
+          backgroundColor: context.colors.primaryBg,
+          resizeToAvoidBottomInset: false,
+          body: Stack(
+            fit: StackFit.expand,
+            clipBehavior: Clip.hardEdge,
+            children: [
+              _buildHistoryContent(context),
+              GestureDetector(
+                onHorizontalDragStart: (_) {
+                  _dragStartValue = _drawerController.value;
+                  _dragCumulativeDelta = 0;
+                  _isUserDragging = true;
+                },
+                onHorizontalDragUpdate: (details) {
+                  _dragCumulativeDelta += details.primaryDelta ?? 0;
+                  final newValue = (_dragStartValue + _dragCumulativeDelta / 305.0).clamp(0.0, 1.0);
+                  _drawerController.value = newValue;
+                },
+                onHorizontalDragEnd: (details) {
+                  _isUserDragging = false;
+                  final velocity = details.primaryVelocity ?? 0;
+                  final goOpen = (velocity.abs() > 300 && velocity > 0) ||
+                                 (velocity.abs() <= 300 && _drawerController.value > 0.5);
+                  if (goOpen) {
+                    _drawerController.animateTo(1.0,
+                      curve: Curves.easeOutCubic,
+                      duration: const Duration(milliseconds: 200),
+                    );
+                    ref.read(homeProvider.notifier).openHistory();
+                  } else {
+                    _drawerController.animateTo(0.0,
+                      curve: Curves.easeOutCubic,
+                      duration: const Duration(milliseconds: 200),
+                    );
+                    ref.read(homeProvider.notifier).closeHistory();
+                  }
+                },
+                onHorizontalDragCancel: () {
+                  _isUserDragging = false;
+                },
+                child: AnimatedBuilder(
+                  animation: _drawerController,
+                  child: cardBody,
+                  builder: (context, child) {
+                    final v = _drawerController.value;
+                    final offset = 305 * v;
+                    final radius = 24 * v;
+                    final shadowOpacity = 0.25 * v;
+                    return Transform.translate(
+                      offset: Offset(offset, 0),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: context.colors.primaryBg,
+                          borderRadius: radius > 0 ? BorderRadius.circular(radius) : null,
+                          boxShadow: shadowOpacity > 0
+                              ? [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: shadowOpacity),
+                                    blurRadius: 24,
+                                    offset: const Offset(-8, 0),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(radius),
+                          clipBehavior: Clip.antiAlias,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              RepaintBoundary(child: child!),
+                              if (v > 0.01)
+                                Positioned.fill(
+                                  child: GestureDetector(
+                                    onTap: _toggleHistory,
+                                    child: Container(
+                                      color: Colors.white.withValues(alpha: 0.15 * v),
+                                    ),
                                   ),
                                 ),
-                              ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildHistoryContent(BuildContext context) {
-    final settings = ref.watch(settingsProvider);
+    final isLoggedIn = ref.watch(settingsProvider.select((s) => s.isLoggedIn));
     return SafeArea(
       key: ValueKey('history_$_historyRefreshKey'),
       child: Padding(
         padding: const EdgeInsets.only(right: 50),
-        child: settings.isLoggedIn
+        child: isLoggedIn
             ? _buildLoggedInHistory(context)
             : _buildLoginPrompt(context),
       ),
@@ -289,6 +281,7 @@ class _HomePageState extends ConsumerState<HomePage>
     }
     if (_historyItems.isEmpty) {
       return ListView(
+        physics: const NeverScrollableScrollPhysics(),
         children: [
           _buildHistoryHeader(context),
           Padding(
@@ -304,6 +297,7 @@ class _HomePageState extends ConsumerState<HomePage>
       );
     }
     return CustomScrollView(
+      physics: const NeverScrollableScrollPhysics(),
       slivers: [
         SliverToBoxAdapter(child: _buildHistoryHeader(context)),
         SliverToBoxAdapter(
@@ -349,90 +343,92 @@ class _HomePageState extends ConsumerState<HomePage>
 
   Widget _buildHistoryTile(BuildContext context, HistoryItem item, int index) {
     final isImage = item.searchType == 'image';
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () {
-              ref.read(homeProvider.notifier).setSearchQuery(item.displayText);
-              ref.read(productListProvider.notifier).updateProducts([]);
-              ref.read(homeProvider.notifier).submitTextSearch(item.displayText);
-              ref.read(homeProvider.notifier).closeHistory();
-              context.push('/results');
-            },
-            onLongPress: () => _showDeleteDialog(context, item),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: isImage
-                          ? AppColors.brandBlue.withOpacity(0.1)
-                          : context.colors.textSecondary.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      isImage ? Icons.camera_alt_outlined : Icons.search,
-                      size: 20,
-                      color: isImage ? AppColors.brandBlue : context.colors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.displayText,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: context.fs(15),
-                            fontWeight: FontWeight.w500,
-                            color: context.colors.textPrimary,
-                          ),
-                        ),
-                        if (item.createdAt != null) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            _formatHistoryTime(item.createdAt!),
-                            style: TextStyle(fontSize: context.fs(12), color: context.colors.textSecondary),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: isImage
-                          ? AppColors.brandBlue.withOpacity(0.1)
-                          : context.colors.textSecondary.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      isImage ? AppLocalizations.of(context).historyTypeImage : AppLocalizations.of(context).historyTypeText,
-                      style: TextStyle(
-                        fontSize: context.fs(11),
+    return RepaintBoundary(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                ref.read(homeProvider.notifier).setSearchQuery(item.displayText);
+                ref.read(productListProvider.notifier).updateProducts([]);
+                ref.read(homeProvider.notifier).submitTextSearch(item.displayText);
+                ref.read(homeProvider.notifier).closeHistory();
+                context.push('/results');
+              },
+              onLongPress: () => _showDeleteDialog(context, item),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: isImage
+                            ? AppColors.brandBlue.withOpacity(0.1)
+                            : context.colors.textSecondary.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        isImage ? Icons.camera_alt_outlined : Icons.search,
+                        size: 20,
                         color: isImage ? AppColors.brandBlue : context.colors.textSecondary,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(Icons.chevron_right, size: 18, color: context.colors.textSecondary.withOpacity(0.4)),
-                ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.displayText,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: context.fs(15),
+                              fontWeight: FontWeight.w500,
+                              color: context.colors.textPrimary,
+                            ),
+                          ),
+                          if (item.createdAt != null) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              _formatHistoryTime(item.createdAt!),
+                              style: TextStyle(fontSize: context.fs(12), color: context.colors.textSecondary),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: isImage
+                            ? AppColors.brandBlue.withOpacity(0.1)
+                            : context.colors.textSecondary.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        isImage ? AppLocalizations.of(context).historyTypeImage : AppLocalizations.of(context).historyTypeText,
+                        style: TextStyle(
+                          fontSize: context.fs(11),
+                          color: isImage ? AppColors.brandBlue : context.colors.textSecondary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(Icons.chevron_right, size: 18, color: context.colors.textSecondary.withOpacity(0.4)),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-        if (index < _historyItems.length - 1)
-          Divider(height: 1, indent: 56, color: context.colors.divider),
-      ],
+          if (index < _historyItems.length - 1)
+            Divider(height: 1, indent: 56, color: context.colors.divider),
+        ],
+      ),
     );
   }
 
@@ -533,7 +529,7 @@ class _HomePageState extends ConsumerState<HomePage>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.history, size: 48, color: context.colors.textTertiary),
+          const Icon(Icons.history, size: 48, color: AppColors.textTertiary),
           const SizedBox(height: 16),
           Text(
             l10n.historyLoginPrompt,
@@ -598,16 +594,13 @@ class _HomePageState extends ConsumerState<HomePage>
     );
   }
 
-
-
   Widget _buildBrandSection(BuildContext context, bool isGalleryOpen, bool isHistoryOpen) {
-    final l10n = AppLocalizations.of(context);
     return RepaintBoundary(
       child: AnimatedOpacity(
         opacity: isHistoryOpen ? 0 : 1,
         duration: const Duration(milliseconds: 200),
         child: Align(
-          alignment: Alignment(0, -0.35),
+          alignment: const Alignment(0, -0.35),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -625,7 +618,7 @@ class _HomePageState extends ConsumerState<HomePage>
               ),
               const SizedBox(height: 12),
               Text(
-                l10n.homeSlogan,
+                AppLocalizations.of(context).homeSlogan,
                 style: TextStyle(
                   color: context.colors.textTertiary,
                   fontSize: context.fs(14),
@@ -680,7 +673,6 @@ class _HomePageState extends ConsumerState<HomePage>
     return Stack(
       fit: StackFit.expand,
       children: [
-        // 进场光晕效果 — 品牌背景渐变脉冲
         Positioned(
           left: 0, right: 0,
           top: 0,
@@ -706,10 +698,8 @@ class _HomePageState extends ConsumerState<HomePage>
           ),
         ),
 
-        // 顶部按钮
         _buildTopButtons(context),
 
-        // Logo — 普通模式居中，相册模式抬升到顶部
         AnimatedPositioned(
           duration: const Duration(milliseconds: 350),
           curve: Curves.easeOutCubic,
@@ -733,7 +723,6 @@ class _HomePageState extends ConsumerState<HomePage>
           ),
         ),
 
-        // 搜索栏 — bottom 由 viewInsets 驱动，与键盘动画同步
         AnimatedPositioned(
           duration: const Duration(milliseconds: 350),
           curve: Curves.easeOutCubic,
@@ -763,7 +752,6 @@ class _HomePageState extends ConsumerState<HomePage>
           ),
         ),
 
-        // 相册瀑布流 — 使用 Slide 动画，不受键盘高度变化影响
         Positioned(
           left: 0, right: 0,
           top: topPadding + 236,

@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 
 logger = logging.getLogger("snapshop")
@@ -67,6 +68,12 @@ from app.schemas.common import ErrorResponse
 async def lifespan(app: FastAPI):
     await init_db()
     await get_redis_client()  # Initialize Redis client
+    # 可选地初始化 Prometheus
+    try:
+        from app.core.metrics import instrumentator
+        instrumentator.instrument(app)
+    except ImportError:
+        pass
     yield
     await _cleanup_clients()
     await close_redis_client()  # Close Redis client
@@ -90,6 +97,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# 可选地集成 Prometheus 指标
+try:
+    from app.core.metrics import instrumentator
+    instrumentator.expose(app)
+except ImportError:
+    pass
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -97,6 +111,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 添加 Gzip 压缩中间件，压缩级别 6，最小压缩大小 1KB
+app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=6)
 
 
 @app.middleware("http")

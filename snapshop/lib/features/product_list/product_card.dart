@@ -30,7 +30,7 @@ class ProductCard extends ConsumerStatefulWidget {
 }
 
 class _ProductCardState extends ConsumerState<ProductCard> {
-  bool _favorited = false;
+  late bool _favorited;
   bool _toggling = false;
 
   @override
@@ -134,143 +134,150 @@ class _ProductCardState extends ConsumerState<ProductCard> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return GestureDetector(
-      onTap: widget.onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: context.colors.cardBg,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: context.colors.border),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Stack(
-              children: [
-                AspectRatio(
-                  aspectRatio: 3 / 4,
-                  child: OptimizedCachedImage(
-                    imageUrl: widget.product.imageUrl,
-                    width: double.infinity,
-                    memCacheWidth: 400,
-                    memCacheHeight: 533,
-                  ),
-                ),
-                Positioned(
-                  top: 8,
-                  left: 8,
-                  child: PlatformBadge(platform: widget.product.platform, isMock: widget.product.isMock),
-                ),
-                Positioned(
-                  bottom: 8,
-                  right: 8,
-                  child: GestureDetector(
-                    onTap: _toggleFavorite,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
-                      ),
-                      child: Icon(
-                        _favorited ? Icons.favorite : Icons.favorite_border,
-                        size: 16,
-                        color: _favorited ? AppColors.priceRed : context.colors.textTertiary,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    return RepaintBoundary(
+      child: GestureDetector(
+        onTap: widget.onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          decoration: BoxDecoration(
+            color: context.colors.cardBg,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: context.colors.border),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Stack(
                 children: [
-                  Text(
-                    widget.product.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: context.fs(12),
-                      color: context.colors.textPrimary,
-                      height: 1.3,
+                  AspectRatio(
+                    aspectRatio: 3 / 4,
+                    child: OptimizedCachedImage(
+                      imageUrl: widget.product.imageUrl,
+                      width: double.infinity,
+                      memCacheWidth: 300,
+                      memCacheHeight: 400,
+                      fadeInDuration: const Duration(milliseconds: 100),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  if (widget.product.tags.isNotEmpty)
-                    Wrap(
-                      spacing: 4,
-                      runSpacing: 2,
-                      children: widget.product.tags.map((tag) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: AppColors.priceRed.withAlpha(20),
-                            borderRadius: BorderRadius.circular(3),
-                            border: Border.all(color: AppColors.priceRed.withAlpha(50)),
-                          ),
-                          child: Text(
-                            tag,
-                            style: TextStyle(
-                              fontSize: context.fs(9),
-                              color: AppColors.priceRed,
-                            ),
-                          ),
-                        );
-                      }).toList(),
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: PlatformBadge(platform: widget.product.platform, isMock: widget.product.isMock),
+                  ),
+                  Positioned(
+                    bottom: 8,
+                    right: 8,
+                    child: GestureDetector(
+                      onTap: _toggleFavorite,
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                        ),
+                        child: Icon(
+                          _favorited ? Icons.favorite : Icons.favorite_border,
+                          size: 16,
+                          color: _favorited ? AppColors.priceRed : context.colors.textTertiary,
+                        ),
+                      ),
                     ),
-                  const SizedBox(height: 6),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Flexible(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              '\u00a5',
-                              style: TextStyle(
-                                fontSize: context.fs(11),
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.priceRed,
-                              ),
-                            ),
-                            Flexible(
-                              child: Text(
-                                '${widget.product.price}',
-                                style: TextStyle(
-                                  fontSize: context.fs(20),
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.priceRed,
-                                  height: 1,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          l10n.formatSalesCount(widget.product.salesCount),
-                          style: TextStyle(
-                            fontSize: context.fs(9),
-                            color: context.colors.textTertiary,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
                   ),
                 ],
               ),
-            ),
-          ],
+              Padding(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      widget.product.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: context.fs(12),
+                        color: context.colors.textPrimary,
+                        height: 1.3,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    if (widget.product.tags.isNotEmpty)
+                      Wrap(
+                        spacing: 4,
+                        runSpacing: 2,
+                        children: widget.product.tags.map((tag) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: AppColors.priceRed.withAlpha(20),
+                              borderRadius: BorderRadius.circular(3),
+                              border: Border.all(color: AppColors.priceRed.withAlpha(50)),
+                            ),
+                            child: Text(
+                              tag,
+                              style: TextStyle(
+                                fontSize: context.fs(9),
+                                color: AppColors.priceRed,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Flexible(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                '\u00a5',
+                                style: TextStyle(
+                                  fontSize: context.fs(11),
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.priceRed,
+                                ),
+                              ),
+                              Flexible(
+                                child: Text(
+                                  '${widget.product.price}',
+                                  style: TextStyle(
+                                    fontSize: context.fs(20),
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.priceRed,
+                                    height: 1,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            l10n.formatSalesCount(widget.product.salesCount),
+                            style: TextStyle(
+                              fontSize: context.fs(9),
+                              color: context.colors.textTertiary,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

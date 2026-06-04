@@ -91,6 +91,7 @@ enum FontSizeOption {
   }
 }
 
+@immutable
 class SettingsState {
   final LocaleOption localeOption;
   final ThemeModeOption themeModeOption;
@@ -145,9 +146,45 @@ class SettingsState {
       browseCount: browseCount ?? this.browseCount,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SettingsState &&
+          runtimeType == other.runtimeType &&
+          localeOption == other.localeOption &&
+          themeModeOption == other.themeModeOption &&
+          fontSizeOption == other.fontSizeOption &&
+          pushEnabled == other.pushEnabled &&
+          inAppAlertsEnabled == other.inAppAlertsEnabled &&
+          avatarPath == other.avatarPath &&
+          nickname == other.nickname &&
+          bio == other.bio &&
+          isLoggedIn == other.isLoggedIn &&
+          favoriteCount == other.favoriteCount &&
+          browseCount == other.browseCount;
+
+  @override
+  int get hashCode => Object.hash(
+        localeOption,
+        themeModeOption,
+        fontSizeOption,
+        pushEnabled,
+        inAppAlertsEnabled,
+        avatarPath,
+        nickname,
+        bio,
+        isLoggedIn,
+        favoriteCount,
+        browseCount,
+      );
+
+  @override
+  String toString() =>
+      'SettingsState(locale: $localeOption, theme: $themeModeOption, fontSize: $fontSizeOption, isLoggedIn: $isLoggedIn)';
 }
 
-class SettingsNotifier extends StateNotifier<SettingsState> {
+class SettingsNotifier extends Notifier<SettingsState> {
   static const _localeKey = 'app_locale';
   static const _themeModeKey = 'theme_mode';
   static const _fontSizeKey = 'font_size';
@@ -158,13 +195,14 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   static const _bioKey = 'profile_bio';
   static const _isLoggedInKey = 'is_logged_in';
 
-  SettingsNotifier()
-      : super(const SettingsState(
-          localeOption: LocaleOption.zh,
-          themeModeOption: ThemeModeOption.system,
-          fontSizeOption: FontSizeOption.standard,
-        )) {
+  @override
+  SettingsState build() {
     _loadFromPrefs();
+    return const SettingsState(
+      localeOption: LocaleOption.zh,
+      themeModeOption: ThemeModeOption.system,
+      fontSizeOption: FontSizeOption.standard,
+    );
   }
 
   Future<void> _loadFromPrefs() async {
@@ -332,7 +370,31 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   }
 }
 
-final settingsProvider =
-    StateNotifierProvider<SettingsNotifier, SettingsState>(
-  (ref) => SettingsNotifier(),
+final settingsProvider = NotifierProvider<SettingsNotifier, SettingsState>(
+  () => SettingsNotifier(),
 );
+
+final localeProvider = Provider<LocaleOption>((ref) {
+  return ref.watch(settingsProvider.select((state) => state.localeOption));
+});
+
+final themeModeProvider = Provider<ThemeModeOption>((ref) {
+  return ref.watch(settingsProvider.select((state) => state.themeModeOption));
+});
+
+final fontSizeProvider = Provider<FontSizeOption>((ref) {
+  return ref.watch(settingsProvider.select((state) => state.fontSizeOption));
+});
+
+final isLoggedInProvider = Provider<bool>((ref) {
+  return ref.watch(settingsProvider.select((state) => state.isLoggedIn));
+});
+
+final nicknameProvider = Provider<String>((ref) {
+  return ref.watch(settingsProvider.select((state) => state.nickname));
+});
+
+final statsProvider = Provider<(int, int)>((ref) {
+  final state = ref.watch(settingsProvider);
+  return (state.favoriteCount, state.browseCount);
+});

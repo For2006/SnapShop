@@ -1,0 +1,22 @@
+[run]
+source = app
+omit =
+    */tests/*
+    */__init__.py
+    */core/cache.py
+    */core/database.py
+    */clients/mock*.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    if self.debug:
+    if settings.debug:
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+
+[html]
+directory = htmlcov

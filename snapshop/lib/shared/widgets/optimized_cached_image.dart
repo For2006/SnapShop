@@ -43,7 +43,7 @@ class OptimizedCachedImage extends StatelessWidget {
       placeholder: (context, url) => effectivePlaceholder,
       errorWidget: (context, url, error) => effectiveErrorWidget,
       useOldImageOnUrlChange: useOldImageOnUrlChange,
-      fadeInDuration: fadeInDuration ?? const Duration(milliseconds: 300),
+      fadeInDuration: fadeInDuration ?? const Duration(milliseconds: 100),
       memCacheWidth: memCacheWidth?.toInt(),
       memCacheHeight: memCacheHeight?.toInt(),
       maxWidthDiskCache: memCacheWidth?.toInt(),
@@ -63,13 +63,6 @@ class OptimizedCachedImage extends StatelessWidget {
   Widget _defaultPlaceholder(BuildContext context) {
     return Container(
       color: context.colors.cardBg,
-      child: const Center(
-        child: SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
-      ),
     );
   }
 

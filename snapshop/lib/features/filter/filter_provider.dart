@@ -5,6 +5,7 @@ import '../../core/network/sse_client.dart';
 import '../../core/network/api_client.dart';
 import '../../core/mock_data.dart';
 
+@immutable
 class FilterState {
   final String filterText;
   final bool isFiltering;
@@ -23,19 +24,33 @@ class FilterState {
       isFiltering: isFiltering ?? this.isFiltering,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is FilterState &&
+          runtimeType == other.runtimeType &&
+          filterText == other.filterText &&
+          isFiltering == other.isFiltering;
+
+  @override
+  int get hashCode => Object.hash(filterText, isFiltering);
+
+  @override
+  String toString() => 'FilterState(filterText: "$filterText", isFiltering: $isFiltering)';
 }
 
-class FilterNotifier extends StateNotifier<FilterState> {
+class FilterNotifier extends Notifier<FilterState> {
   final ApiClient _api = ApiClient();
   SseClient? _sseClient;
 
-  FilterNotifier() : super(const FilterState());
-
   @override
-  void dispose() {
-    _sseClient?.close();
-    _sseClient = null;
-    super.dispose();
+  FilterState build() {
+    ref.onDispose(() {
+      _sseClient?.close();
+      _sseClient = null;
+    });
+    return const FilterState();
   }
 
   void setFilterText(String text) {
@@ -137,7 +152,14 @@ class FilterNotifier extends StateNotifier<FilterState> {
   }
 }
 
-final filterProvider =
-    StateNotifierProvider<FilterNotifier, FilterState>((ref) {
-  return FilterNotifier();
+final filterProvider = NotifierProvider<FilterNotifier, FilterState>(
+  () => FilterNotifier(),
+);
+
+final filterTextProvider = Provider<String>((ref) {
+  return ref.watch(filterProvider.select((state) => state.filterText));
+});
+
+final isFilteringProvider = Provider<bool>((ref) {
+  return ref.watch(filterProvider.select((state) => state.isFiltering));
 });

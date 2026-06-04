@@ -27,7 +27,13 @@ class SearchService:
         all_products: list[dict] = []
 
         if self._clients:
-            tasks = [client.search(keywords, page_size=settings.platform_page_size) for client in self._clients]
+            # 为每个平台搜索添加超时控制 (8秒)
+            tasks = [
+                asyncio.wait_for(
+                    client.search(keywords, page_size=settings.platform_page_size),
+                    timeout=8.0
+                ) for client in self._clients
+            ]
             t0 = time.time()
             results_list = await asyncio.gather(*tasks, return_exceptions=True)
             elapsed = time.time() - t0

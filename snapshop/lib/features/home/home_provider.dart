@@ -11,6 +11,7 @@ enum RecognitionStatus { idle, recognizing, completed }
 
 enum _OperationType { image, text }
 
+@immutable
 class HomeState {
   final String searchQuery;
   final bool isGalleryOpen;
@@ -68,12 +69,53 @@ class HomeState {
       selectedImagePath: selectedImagePath ?? this.selectedImagePath,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is HomeState &&
+          runtimeType == other.runtimeType &&
+          searchQuery == other.searchQuery &&
+          isGalleryOpen == other.isGalleryOpen &&
+          isHistoryOpen == other.isHistoryOpen &&
+          recognitionStatus == other.recognitionStatus &&
+          recognitionResult == other.recognitionResult &&
+          listEquals(products, other.products) &&
+          activeFilter == other.activeFilter &&
+          activeSort == other.activeSort &&
+          sessionId == other.sessionId &&
+          errorMessage == other.errorMessage &&
+          selectedImagePath == other.selectedImagePath;
+
+  @override
+  int get hashCode => Object.hash(
+        searchQuery,
+        isGalleryOpen,
+        isHistoryOpen,
+        recognitionStatus,
+        recognitionResult,
+        products,
+        activeFilter,
+        activeSort,
+        sessionId,
+        errorMessage,
+        selectedImagePath,
+      );
+
+  @override
+  String toString() =>
+      'HomeState(status: $recognitionStatus, products: ${products.length}, sessionId: $sessionId)';
 }
 
-class HomeNotifier extends StateNotifier<HomeState> {
+class HomeNotifier extends Notifier<HomeState> {
   final ApiClient _api = ApiClient();
+  List<MockProduct>? _originalProducts;
+  _OperationType _lastOperationType = _OperationType.image;
 
-  HomeNotifier() : super(const HomeState());
+  @override
+  HomeState build() {
+    return const HomeState();
+  }
 
   void setSearchQuery(String query) {
     state = state.copyWith(searchQuery: query);
@@ -288,12 +330,53 @@ class HomeNotifier extends StateNotifier<HomeState> {
     }
   }
 
-  List<MockProduct>? _originalProducts;
-  _OperationType _lastOperationType = _OperationType.image;
-
   bool get isTextOperation => _lastOperationType == _OperationType.text;
 }
 
-final homeProvider = StateNotifierProvider<HomeNotifier, HomeState>((ref) {
-  return HomeNotifier();
+final homeProvider = NotifierProvider<HomeNotifier, HomeState>(
+  () => HomeNotifier(),
+);
+
+final searchQueryProvider = Provider<String>((ref) {
+  return ref.watch(homeProvider.select((state) => state.searchQuery));
+});
+
+final recognitionStatusProvider = Provider<RecognitionStatus>((ref) {
+  return ref.watch(homeProvider.select((state) => state.recognitionStatus));
+});
+
+final recognitionResultProvider = Provider<MockRecognitionResult?>((ref) {
+  return ref.watch(homeProvider.select((state) => state.recognitionResult));
+});
+
+final productsProvider = Provider<List<MockProduct>>((ref) {
+  return ref.watch(homeProvider.select((state) => state.products));
+});
+
+final productCountProvider = Provider<int>((ref) {
+  return ref.watch(homeProvider.select((state) => state.products.length));
+});
+
+final sessionIdProvider = Provider<String?>((ref) {
+  return ref.watch(homeProvider.select((state) => state.sessionId));
+});
+
+final errorMessageProvider = Provider<String?>((ref) {
+  return ref.watch(homeProvider.select((state) => state.errorMessage));
+});
+
+final isGalleryOpenProvider = Provider<bool>((ref) {
+  return ref.watch(homeProvider.select((state) => state.isGalleryOpen));
+});
+
+final isHistoryOpenProvider = Provider<bool>((ref) {
+  return ref.watch(homeProvider.select((state) => state.isHistoryOpen));
+});
+
+final activeFilterProvider = Provider<String?>((ref) {
+  return ref.watch(homeProvider.select((state) => state.activeFilter));
+});
+
+final activeSortProvider = Provider<String?>((ref) {
+  return ref.watch(homeProvider.select((state) => state.activeSort));
 });

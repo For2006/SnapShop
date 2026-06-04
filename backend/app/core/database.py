@@ -3,7 +3,24 @@ from sqlalchemy.orm import DeclarativeBase
 
 from app.config import settings
 
-engine = create_async_engine(settings.database_url, echo=settings.debug)
+# 根据数据库类型配置连接池
+engine_kwargs = {
+    "echo": settings.debug,
+    "pool_pre_ping": True,
+}
+
+# 仅非 SQLite 数据库支持连接池参数
+if "sqlite" not in settings.database_url:
+    engine_kwargs.update({
+        "pool_size": 10,
+        "max_overflow": 20,
+        "pool_recycle": 3600,
+    })
+
+engine = create_async_engine(
+    settings.database_url,
+    **engine_kwargs
+)
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 

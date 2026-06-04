@@ -1,14 +1,14 @@
 import json
 import pickle
+import logging
 from functools import wraps
 from typing import Any, Callable, Optional, TypeVar
 
 import redis.asyncio as redis
-from pythonjsonlogger import jsonlogger
 
 from app.config import settings
 
-logger = jsonlogger.JsonFormatter("%(asctime)s %(levelname)s %(name)s %(message)s")
+logger = logging.getLogger("snapshop")
 
 _redis_client: Optional[redis.Redis] = None
 _T = TypeVar("_T")

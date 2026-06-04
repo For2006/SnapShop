@@ -66,8 +66,10 @@ from app.schemas.common import ErrorResponse
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    await get_redis_client()  # Initialize Redis client
     yield
     await _cleanup_clients()
+    await close_redis_client()  # Close Redis client
 
 
 async def _cleanup_clients():

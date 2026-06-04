@@ -32,35 +32,41 @@ class SuggestionCard extends StatelessWidget {
       }
     }
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: isPrimary ? const Color(0xFFFFF7ED) : context.colors.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isPrimary ? const Color(0xFFFED7AA) : context.colors.divider,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              getIcon(),
-              size: 16,
-              color: isPrimary ? AppColors.brandBlue : context.colors.textSecondary,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        splashColor: (isPrimary ? AppColors.brandBlue : context.colors.textPrimary).withValues(alpha: 0.12),
+        highlightColor: (isPrimary ? AppColors.brandBlue : context.colors.textPrimary).withValues(alpha: 0.06),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: isPrimary ? const Color(0xFFFFF7ED) : context.colors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isPrimary ? const Color(0xFFFED7AA) : context.colors.divider,
             ),
-            const SizedBox(width: 6),
-            Text(
-              suggestion.title,
-              style: TextStyle(
-                fontSize: context.fs(13),
-                fontWeight: FontWeight.w500,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                getIcon(),
+                size: 16,
                 color: isPrimary ? AppColors.brandBlue : context.colors.textSecondary,
               ),
-            ),
-          ],
+              const SizedBox(width: 6),
+              Text(
+                suggestion.title,
+                style: TextStyle(
+                  fontSize: context.fs(13),
+                  fontWeight: FontWeight.w500,
+                  color: isPrimary ? AppColors.brandBlue : context.colors.textSecondary,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -173,6 +173,14 @@ class AppLocalizations {
       'zh': '搜索失败，请检查网络后重试',
       'en': 'Search failed, check your network and try again'
     },
+    'filter_no_session': {
+      'zh': '请先进行识图识别',
+      'en': 'Please perform image recognition first'
+    },
+    'filter_network_error': {
+      'zh': '筛选失败，请检查网络后重试',
+      'en': 'Filter failed, check your network and try again'
+    },
     'login_failed': {'zh': '登录失败', 'en': 'Login failed'},
     'register_failed': {'zh': '注册失败', 'en': 'Registration failed'},
     'no_search_history': {'zh': '暂无搜索记录', 'en': 'No search history'},
@@ -183,6 +191,42 @@ class AppLocalizations {
     'history_login_button': {'zh': '立即登录', 'en': 'Log In Now'},
     'snapshop_user': {'zh': 'SnapShop 用户', 'en': 'SnapShop User'},
     'personal_center': {'zh': '个人中心', 'en': 'Personal Center'},
+
+    // History clear/delete dialogs
+    'history_clear_title': {'zh': '清空搜索记录', 'en': 'Clear Search History'},
+    'history_clear_message': {'zh': '确定要清空所有搜索记录吗？此操作不可恢复。', 'en': 'Clear all search history? This cannot be undone.'},
+    'history_clear_confirm': {'zh': '清空', 'en': 'Clear'},
+    'history_delete_title': {'zh': '删除记录', 'en': 'Delete Record'},
+    'history_delete_message_image': {'zh': '确定要删除这条拍照识别记录吗？', 'en': 'Delete this photo recognition record?'},
+    'history_delete_message_text': {'zh': '确定要删除这条搜索记录吗？', 'en': 'Delete this search record?'},
+    'history_delete_confirm': {'zh': '删除', 'en': 'Delete'},
+    'history_type_image': {'zh': '拍照', 'en': 'Photo'},
+    'history_type_text': {'zh': '搜索', 'en': 'Search'},
+
+    // Favorite dialog
+    'favorite_need_login_title': {'zh': '需要登录', 'en': 'Login Required'},
+    'favorite_need_login_content': {'zh': '收藏功能需要登录账号，是否前往登录？', 'en': 'Login is required to use favorites. Go to login?'},
+    'go_to_login': {'zh': '去登录', 'en': 'Login'},
+    'cancel': {'zh': '取消', 'en': 'Cancel'},
+    'ok_label': {'zh': '确定', 'en': 'OK'},
+    'favorite_failed': {'zh': '收藏操作失败，请重试', 'en': 'Favorite operation failed, please retry'},
+    'favorite_failed_network': {'zh': '无法连接服务器，请检查网络', 'en': 'Cannot connect to server, check network'},
+
+    // Product detail
+    'official_store': {'zh': '官方旗舰店', 'en': 'Official Store'},
+    'third_party_store': {'zh': '第三方店铺', 'en': 'Third-party Store'},
+    'rating': {'zh': '评分', 'en': 'Rating'},
+    'product_tags': {'zh': '商品标签', 'en': 'Tags'},
+    'product_attributes': {'zh': '商品属性', 'en': 'Attributes'},
+    'go_to_platform': {'zh': '前往电商平台查看', 'en': 'View on Platform'},
+    'mock_not_supported': {'zh': 'Mock数据不支持跳转到电商平台', 'en': 'Mock data does not support external links'},
+    'link_open_failed': {'zh': '无法打开商品链接', 'en': 'Cannot open product link'},
+    'sales_label': {'zh': '销量', 'en': 'Sales'},
+
+    // Time formatting
+    'x_minutes_ago': {'zh': '{}分钟前', 'en': '{}m ago'},
+    'x_hours_ago': {'zh': '{}小时前', 'en': '{}h ago'},
+    'x_days_ago': {'zh': '{}天前', 'en': '{}d ago'},
   };
 
   String get(String key) {
@@ -278,6 +322,8 @@ class AppLocalizations {
   // Error messages
   String get recognitionFailed => get('recognition_failed');
   String get searchFailed => get('search_failed');
+  String get filterNoSession => get('filter_no_session');
+  String get filterNetworkError => get('filter_network_error');
   String get loginFailed => get('login_failed');
   String get registerFailed => get('register_failed');
   String get noSearchHistory => get('no_search_history');
@@ -297,6 +343,15 @@ class AppLocalizations {
   String get browseHistory => get('browse_history');
   String get searchHistory => get('search_history');
   String get historyTitle => get('history_title');
+  String get historyClearTitle => get('history_clear_title');
+  String get historyClearMessage => get('history_clear_message');
+  String get historyClearConfirm => get('history_clear_confirm');
+  String get historyDeleteTitle => get('history_delete_title');
+  String get historyDeleteMessageImage => get('history_delete_message_image');
+  String get historyDeleteMessageText => get('history_delete_message_text');
+  String get historyDeleteConfirm => get('history_delete_confirm');
+  String get historyTypeImage => get('history_type_image');
+  String get historyTypeText => get('history_type_text');
 
   // Home
   String get homeSlogan => get('home_slogan');
@@ -334,6 +389,44 @@ class AppLocalizations {
   String get priceItemsFound => get('price_items_found');
   String get priceLowest => get('price_lowest');
   String get priceAverage => get('price_average');
+
+  // Favorite dialog
+  String get favoriteNeedLoginTitle => get('favorite_need_login_title');
+  String get favoriteNeedLoginContent => get('favorite_need_login_content');
+  String get goToLogin => get('go_to_login');
+  String get cancel => get('cancel');
+  String get okLabel => get('ok_label');
+  String get favoriteFailed => get('favorite_failed');
+  String get favoriteFailedNetwork => get('favorite_failed_network');
+
+  // Product detail
+  String get officialStore => get('official_store');
+  String get thirdPartyStore => get('third_party_store');
+  String get rating => get('rating');
+  String get productTags => get('product_tags');
+  String get productAttributes => get('product_attributes');
+  String get goToPlatform => get('go_to_platform');
+  String get mockNotSupported => get('mock_not_supported');
+  String get linkOpenFailed => get('link_open_failed');
+  String get salesLabel => get('sales_label');
+
+  // Time formatting
+  String formatRelativeTime(DateTime dt) {
+    final now = DateTime.now();
+    final diff = now.difference(dt);
+    final templateMin = get('x_minutes_ago');
+    final templateHour = get('x_hours_ago');
+    final templateDay = get('x_days_ago');
+    if (diff.inMinutes < 60) return templateMin.replaceFirst('{}', diff.inMinutes.toString());
+    if (diff.inHours < 24) return templateHour.replaceFirst('{}', diff.inHours.toString());
+    if (diff.inDays < 7) return templateDay.replaceFirst('{}', diff.inDays.toString());
+    final isZh = locale.languageCode == 'zh';
+    return isZh ? '${dt.month}/${dt.day}' : '${dt.month.toString().padLeft(2, '0')}/${dt.day.toString().padLeft(2, '0')}';
+  }
+
+  String storeTypeLabel(String shopType) {
+    return shopType == 'official' ? officialStore : thirdPartyStore;
+  }
 }
 
 class AppLocalizationsDelegate

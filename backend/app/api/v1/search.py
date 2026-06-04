@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_device, get_db, get_text_search_service
@@ -16,5 +16,5 @@ async def text_search(
     service: TextSearchService = Depends(get_text_search_service),
 ):
     if not body.keywords:
-        return {"error": "keywords are required"}
+        raise HTTPException(status_code=400, detail={"error_code": "VALIDATION_ERROR", "message": "keywords不可为空"})
     return await service.search(body.keywords, device_id=device_id, db=db)

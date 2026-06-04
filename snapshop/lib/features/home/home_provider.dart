@@ -9,6 +9,8 @@ import '../../core/utils/image_compress.dart';
 
 enum RecognitionStatus { idle, recognizing, completed }
 
+enum _OperationType { image, text }
+
 class HomeState {
   final String searchQuery;
   final bool isGalleryOpen;
@@ -94,16 +96,22 @@ class HomeNotifier extends StateNotifier<HomeState> {
   }
 
   Future<void> startRecognition({File? imageFile}) async {
+    _lastOperationType = _OperationType.image;
     state = state.copyWith(
       recognitionStatus: RecognitionStatus.recognizing,
       clearError: true,
       selectedImagePath: imageFile?.path,
     );
     try {
-      final File? sourceFile = imageFile ??
-          (state.selectedImagePath != null
-              ? File(state.selectedImagePath!)
-              : null);
+      File? sourceFile;
+      if (imageFile != null) {
+        sourceFile = imageFile;
+      } else if (state.selectedImagePath != null) {
+        final f = File(state.selectedImagePath!);
+        if (await f.exists()) {
+          sourceFile = f;
+        }
+      }
       if (sourceFile == null) {
         state = state.copyWith(
           recognitionStatus: RecognitionStatus.completed,
@@ -131,7 +139,7 @@ class HomeNotifier extends StateNotifier<HomeState> {
         );
         return;
       }
-      _handleRecognizeResponse(data);
+      _handleApiResponse(data);
     } on DioException catch (e) {
       String message = '识别失败，请检查网络后重试';
       if (e.response != null) {
@@ -159,6 +167,7 @@ class HomeNotifier extends StateNotifier<HomeState> {
 
   Future<void> submitTextSearch(String query) async {
     if (query.trim().isEmpty) return;
+    _lastOperationType = _OperationType.text;
     state = state.copyWith(
       recognitionStatus: RecognitionStatus.recognizing,
       clearError: true,
@@ -176,7 +185,7 @@ class HomeNotifier extends StateNotifier<HomeState> {
         );
         return;
       }
-      _handleSearchResponse(data);
+      _handleApiResponse(data);
     } on DioException catch (e) {
       String message = '搜索失败，请检查网络后重试';
       if (e.response != null) {
@@ -202,31 +211,20 @@ class HomeNotifier extends StateNotifier<HomeState> {
     }
   }
 
-  void _handleRecognizeResponse(Map<String, dynamic> data) {
+  void _handleApiResponse(Map<String, dynamic> data) {
     final sessionId = data['session_id']?.toString();
     final products = (data['products'] as List<dynamic>?)
             ?.map((e) => MockProduct.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [];
+    _originalProducts = null;
     state = state.copyWith(
       recognitionStatus: RecognitionStatus.completed,
       recognitionResult: MockRecognitionResult.fromJson(data),
       products: products,
       sessionId: sessionId,
-    );
-  }
-
-  void _handleSearchResponse(Map<String, dynamic> data) {
-    final sessionId = data['session_id']?.toString();
-    final products = (data['products'] as List<dynamic>?)
-            ?.map((e) => MockProduct.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [];
-    state = state.copyWith(
-      recognitionStatus: RecognitionStatus.completed,
-      recognitionResult: MockRecognitionResult.fromJson(data),
-      products: products,
-      sessionId: sessionId,
+      clearFilter: true,
+      clearSort: true,
     );
   }
 
@@ -250,31 +248,50 @@ class HomeNotifier extends StateNotifier<HomeState> {
     );
   }
 
-  void filterProducts({String? platform, String? sort}) {
-    var newProducts = List<MockProduct>.from(state.products);
-    if (platform != null) {
-      newProducts = newProducts.where((p) => p.platform == platform).toList();
+  void filterProducts({String? platform, String? sort, String? shopType, List<MockProduct>? baseProducts}) {
+    if (_originalProducts == null || baseProducts != null) {
+      _originalProducts = List<MockProduct>.from(baseProducts ?? state.products);
     }
-    if (sort == 'price_asc') {
+    var newProducts = List<MockProduct>.from(_originalProducts!);
+    final effectivePlatform = platform ?? state.activeFilter;
+    final effectiveSort = sort ?? state.activeSort;
+    if (effectivePlatform != null) {
+      newProducts = newProducts.where((p) => p.platform == effectivePlatform).toList();
+    }
+    if (shopType != null) {
+      newProducts = newProducts.where((p) => p.shopType == shopType).toList();
+    }
+    if (effectiveSort == 'price_asc') {
       newProducts.sort((a, b) => a.price.compareTo(b.price));
+    } else if (effectiveSort == 'price_desc') {
+      newProducts.sort((a, b) => b.price.compareTo(a.price));
+    } else if (effectiveSort == 'sales') {
+      newProducts.sort((a, b) => b.salesCount.compareTo(a.salesCount));
     }
     state = state.copyWith(
-      activeFilter: platform,
-      activeSort: sort,
+      activeFilter: effectivePlatform,
+      activeSort: effectiveSort,
       products: newProducts,
     );
   }
 
   void clearFilters() {
-    state = state.copyWith(clearFilter: true, clearSort: true);
+    if (_originalProducts != null) {
+      state = state.copyWith(
+        clearFilter: true,
+        clearSort: true,
+        products: _originalProducts,
+      );
+      _originalProducts = null;
+    } else {
+      state = state.copyWith(clearFilter: true, clearSort: true);
+    }
   }
 
-  void simulateFilter(String filterText) {
-    state = state.copyWith(
-      products: state.products.where((p) => p.platform == 'taobao').toList(),
-      activeFilter: 'taobao',
-    );
-  }
+  List<MockProduct>? _originalProducts;
+  _OperationType _lastOperationType = _OperationType.image;
+
+  bool get isTextOperation => _lastOperationType == _OperationType.text;
 }
 
 final homeProvider = StateNotifierProvider<HomeNotifier, HomeState>((ref) {

@@ -172,7 +172,7 @@ class _FavoritesTabState extends ConsumerState<FavoritesTab> {
               Positioned(
                 top: 6,
                 left: 6,
-                child: PlatformBadge(platform: snapshot['platform']?.toString() ?? ''),
+                child: PlatformBadge(platform: snapshot['platform']?.toString() ?? '', isMock: snapshot['is_mock'] == true),
               ),
               Positioned(
                 top: 6,

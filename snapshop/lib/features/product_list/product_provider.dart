@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/mock_data.dart';
-import '../../core/network/api_client.dart';
 
 class ProductListState {
   final List<MockProduct> products;
@@ -31,32 +30,12 @@ class ProductListState {
 }
 
 class ProductListNotifier extends StateNotifier<ProductListState> {
-  final ApiClient _api = ApiClient();
+  List<MockProduct> _fullProducts = [];
 
   ProductListNotifier() : super(const ProductListState());
 
-  Future<void> sortProducts(String sortBy, String? sessionId) async {
-    if (sessionId == null) return;
-    try {
-      final response = await _api.get(
-        '/products/$sessionId',
-        queryParameters: {'sort_by': sortBy, 'page': 1, 'size': 50},
-      );
-      final data = response.data as Map<String, dynamic>;
-      final products = (data['items'] as List<dynamic>?)
-              ?.map(
-                  (e) => MockProduct.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [];
-      state = state.copyWith(products: products, sortBy: sortBy);
-    } catch (e) {
-      debugPrint('[ProductListNotifier] sortProducts 失败: $e');
-      _localSort(sortBy);
-    }
-  }
-
-  void _localSort(String sortBy) {
-    var products = List<MockProduct>.from(state.products);
+  void sortProducts(String sortBy) {
+    var products = List<MockProduct>.from(_fullProducts.isNotEmpty ? _fullProducts : state.products);
     switch (sortBy) {
       case 'price_asc':
         products.sort((a, b) => a.price.compareTo(b.price));
@@ -67,39 +46,25 @@ class ProductListNotifier extends StateNotifier<ProductListState> {
       case 'sales':
         products.sort((a, b) => b.salesCount.compareTo(a.salesCount));
         break;
+      case 'comprehensive':
+        break;
     }
     state = state.copyWith(products: products, sortBy: sortBy);
   }
 
-  Future<void> filterByPlatform(String? platform, String? sessionId) async {
-    if (sessionId != null && platform != null) {
-      try {
-        final response = await _api.get(
-          '/products/$sessionId',
-          queryParameters: {'platform': platform, 'page': 1, 'size': 50},
-        );
-        final data = response.data as Map<String, dynamic>;
-        final products = (data['items'] as List<dynamic>?)
-                ?.map(
-                    (e) => MockProduct.fromJson(e as Map<String, dynamic>))
-                .toList() ??
-            [];
-        state =
-            state.copyWith(products: products, filterPlatform: platform);
-        return;
-      } catch (e) {
-        debugPrint('[ProductListNotifier] filterByPlatform 失败: $e');
-      }
-    }
-
-    var products = List<MockProduct>.from(state.products);
+  void filterByPlatform(String? platform) {
+    var products = List<MockProduct>.from(_fullProducts.isNotEmpty ? _fullProducts : state.products);
     if (platform != null) {
       products = products.where((p) => p.platform == platform).toList();
+      state = state.copyWith(products: products, filterPlatform: platform);
+    } else {
+      products = List<MockProduct>.from(_fullProducts);
+      state = state.copyWith(products: products, filterPlatform: null);
     }
-    state = state.copyWith(products: products, filterPlatform: platform);
   }
 
   void updateProducts(List<MockProduct> products) {
+    _fullProducts = List<MockProduct>.from(products);
     state = state.copyWith(products: products);
   }
 }

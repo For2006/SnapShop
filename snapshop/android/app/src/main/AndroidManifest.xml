@@ -25,6 +25,20 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- 自定义 scheme 深度链接: snapshop:// -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="snapshop" android:host="*"/>
+            </intent-filter>
+            <!-- HTTP 深度链接 (开发环境) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="http" android:host="172.17.108.26" android:pathPrefix="/"/>
+            </intent-filter>
         </activity>
         <meta-data
             android:name="flutterEmbedding"

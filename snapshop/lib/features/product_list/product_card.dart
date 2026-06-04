@@ -50,21 +50,22 @@ class _ProductCardState extends ConsumerState<ProductCard> {
   Future<void> _toggleFavorite() async {
     if (_toggling) return;
 
+    final l10n = AppLocalizations.of(context);
     final isLoggedIn = ref.read(settingsProvider).isLoggedIn;
     if (!isLoggedIn) {
       final go = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('需要登录'),
-          content: const Text('收藏功能需要登录账号，是否前往登录？'),
+          title: Text(l10n.favoriteNeedLoginTitle),
+          content: Text(l10n.favoriteNeedLoginContent),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('取消'),
+              child: Text(l10n.cancel),
             ),
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('去登录'),
+              child: Text(l10n.goToLogin),
             ),
           ],
         ),
@@ -96,6 +97,7 @@ class _ProductCardState extends ConsumerState<ProductCard> {
             'shop_type': widget.product.shopType,
             'rating': widget.product.rating,
             'sales_count': widget.product.salesCount,
+            'is_mock': widget.product.isMock,
             'tags': widget.product.tags,
           },
         });
@@ -104,14 +106,14 @@ class _ProductCardState extends ConsumerState<ProductCard> {
     } on DioException catch (e) {
       setState(() => _favorited = wasFavorited);
       if (mounted) {
-        String message = '收藏操作失败，请重试';
+        String message = l10n.favoriteFailed;
         if (e.response != null) {
           final detail = e.response!.data;
           if (detail is Map<String, dynamic>) {
             message = detail['message']?.toString() ?? message;
           }
         } else if (e.type == DioExceptionType.connectionError) {
-          message = '无法连接服务器，请检查网络';
+          message = l10n.favoriteFailedNetwork;
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
@@ -121,7 +123,7 @@ class _ProductCardState extends ConsumerState<ProductCard> {
       setState(() => _favorited = wasFavorited);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('收藏失败：$e'), duration: const Duration(seconds: 2)),
+          SnackBar(content: Text('${l10n.favoriteFailed}: $e'), duration: const Duration(seconds: 2)),
         );
       }
     } finally {
@@ -162,7 +164,7 @@ class _ProductCardState extends ConsumerState<ProductCard> {
                 Positioned(
                   top: 8,
                   left: 8,
-                  child: PlatformBadge(platform: widget.product.platform),
+                  child: PlatformBadge(platform: widget.product.platform, isMock: widget.product.isMock),
                 ),
                 Positioned(
                   bottom: 8,
@@ -210,9 +212,9 @@ class _ProductCardState extends ConsumerState<ProductCard> {
                         return Container(
                           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFEF2F2),
+                            color: AppColors.priceRed.withAlpha(20),
                             borderRadius: BorderRadius.circular(3),
-                            border: Border.all(color: const Color(0xFFFECACA)),
+                            border: Border.all(color: AppColors.priceRed.withAlpha(50)),
                           ),
                           child: Text(
                             tag,

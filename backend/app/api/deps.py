@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db as _get_db
-from app.core.exceptions import SessionNotFoundError
+from app.core.exceptions import AppException, SessionNotFoundError
 from app.models import SearchSession
 
 
@@ -14,7 +14,7 @@ async def get_db() -> AsyncSession:
         yield session
 
 
-async def get_current_device(x_device_id: str = Header(None, alias="X-Device-Id")) -> str:
+def get_current_device(x_device_id: str = Header(None, alias="X-Device-Id")) -> str:
     if not x_device_id:
         x_device_id = "anonymous-device"
     return x_device_id
@@ -32,15 +32,15 @@ async def get_current_user(
     token = authorization.removeprefix("Bearer ")
     user_id = decode_access_token(token)
     if not user_id:
-        raise HTTPException(status_code=401, detail={"error_code": "INVALID_TOKEN", "message": "Token无效或已过期"})
+        raise AppException(status_code=401, error_code="INVALID_TOKEN", message="Token无效或已过期")
     try:
         uid = uuid.UUID(user_id)
     except ValueError:
-        raise HTTPException(status_code=401, detail={"error_code": "INVALID_TOKEN", "message": "Token无效或已过期"})
+        raise AppException(status_code=401, error_code="INVALID_TOKEN", message="Token无效或已过期")
     result = await db.execute(select(User).where(User.id == uid))
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=401, detail={"error_code": "INVALID_TOKEN", "message": "用户不存在"})
+        raise AppException(status_code=401, error_code="INVALID_TOKEN", message="用户不存在，请重新登录")
     return user
 
 
@@ -84,12 +84,15 @@ def get_recognition_service():
     from app.clients.ark_llm_client import ArkLLMClient
     from app.clients.ark_vlm_client import ArkVLMClient
     from app.services.recognition_service import RecognitionService
+    from app.services.search_service import SearchService
 
+    search_service = _get_or_create_service("search", lambda: SearchService())
     return _get_or_create_service(
         "recognition",
         lambda: RecognitionService(
             vlm_client=ArkVLMClient(),
             llm_client=ArkLLMClient(),
+            search_service=search_service,
         ),
     )
 
@@ -127,5 +130,10 @@ def get_comparison_service():
 def get_text_search_service():
     from app.clients.ark_llm_client import ArkLLMClient
     from app.services.text_search_service import TextSearchService
+    from app.services.search_service import SearchService
 
-    return _get_or_create_service("text_search", lambda: TextSearchService(llm_client=ArkLLMClient()))
+    search_service = _get_or_create_service("search", lambda: SearchService())
+    return _get_or_create_service("text_search", lambda: TextSearchService(
+        llm_client=ArkLLMClient(),
+        search_service=search_service,
+    ))

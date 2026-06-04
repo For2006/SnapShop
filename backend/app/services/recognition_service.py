@@ -20,10 +20,10 @@ logger = logging.getLogger(__name__)
 
 
 class RecognitionService:
-    def __init__(self, vlm_client=None, llm_client=None):
+    def __init__(self, vlm_client=None, llm_client=None, search_service=None):
         self._vlm_client = vlm_client
         self._llm_client = llm_client
-        self._search_service = SearchService()
+        self._search_service = search_service or SearchService()
         self._comparison_service = ComparisonService()
         self._suggestion_service = SuggestionService(llm_client)
 
@@ -33,6 +33,9 @@ class RecognitionService:
         device_id: str,
         db: AsyncSession,
     ) -> dict:
+        if self._vlm_client is None:
+            raise AIServiceUnavailableError("VLM client not configured")
+
         t_start = time.time()
         session = SearchSession(
             device_id=device_id,
@@ -64,7 +67,10 @@ class RecognitionService:
             raise RecognitionFailedError()
 
         category = vlm_result.get("category", "")
-        keywords = vlm_result.get("keywords", [category]) if vlm_result.get("keywords") else [category]
+        raw_keywords = vlm_result.get("keywords", [category]) if vlm_result.get("keywords") else [category]
+        keywords = [kw for kw in raw_keywords if kw and str(kw).strip()]
+        if not keywords:
+            keywords = [category]
         confidence = vlm_result.get("confidence", {})
 
         recognition = RecognitionResult(
@@ -77,14 +83,26 @@ class RecognitionService:
         db.add(recognition)
 
         t0 = time.time()
-        products = await self._search_service.search_all(
-            keywords=keywords, session=session, db=db
-        )
+        try:
+            products = await self._search_service.search_all(
+                keywords=keywords, session=session, db=db
+            )
+        except Exception as e:
+            logger.error(f"[识别] 商品搜索失败: {e}, 耗时={time.time()-t_start:.2f}s")
+            session.status = SessionStatus.FAILED
+            await db.commit()
+            raise RecognitionFailedError(str(e))
         logger.info(f"[识别] 商品搜索耗时={time.time()-t0:.2f}s, 结果数={len(products)}")
 
-        filtered_products, price_summary = self._comparison_service.compare_and_rerank(
-            products, keywords
-        )
+        try:
+            filtered_products, price_summary = self._comparison_service.compare_and_rerank(
+                products, keywords
+            )
+        except Exception as e:
+            logger.error(f"[识别] 商品排序/去重失败: {e}")
+            session.status = SessionStatus.FAILED
+            await db.commit()
+            raise RecognitionFailedError(str(e))
 
         from app.services.browse_recorder import record_browse_entries
         await record_browse_entries(filtered_products, device_id, db)
@@ -120,14 +138,16 @@ class RecognitionService:
             "price_summary": price_summary,
         }
 
-    async def _recognize_with_self_correction(self, image_bytes: bytes, max_retries: int = 0) -> dict:
+    async def _recognize_with_self_correction(self, image_bytes: bytes, max_retries: int = 1) -> dict:
         result = None
         for attempt in range(max_retries + 1):
             try:
                 result = await self._vlm_client.recognize(image_bytes)
-            except (VLMClientError, httpx.TimeoutException, httpx.ConnectError):
+            except (VLMClientError, httpx.TimeoutException, httpx.ConnectError) as e:
+                logger.warning(f"[识别] VLM调用失败 (attempt={attempt}/{max_retries}): {e}")
                 if attempt == max_retries:
                     raise AIServiceUnavailableError()
+                continue
 
             if not result:
                 if attempt == max_retries:
@@ -144,11 +164,20 @@ class RecognitionService:
             if all_ok and result.get("category"):
                 return result
 
-            if attempt < max_retries and self._llm_client:
+            if attempt < max_retries and self._llm_client is not None:
                 try:
-                    result = await self._llm_client.self_correct(result)
-                except (LLMClientError, httpx.TimeoutException, httpx.ConnectError):
-                    pass
+                    corrected = await self._llm_client.self_correct(result)
+                    if corrected:
+                        c_confidence = corrected.get("confidence", {})
+                        c_all_ok = True
+                        for key in ("category", "color", "style"):
+                            if c_confidence.get(key, 1.0) < 0.7:
+                                c_all_ok = False
+                                break
+                        if c_all_ok and corrected.get("category"):
+                            return corrected
+                except (LLMClientError, httpx.TimeoutException, httpx.ConnectError) as e:
+                    logger.warning(f"[识别] LLM自校正失败 (attempt={attempt}): {e}")
 
         if result is None:
             raise RecognitionFailedError()
@@ -169,14 +198,14 @@ class RecognitionService:
             raise SessionNotFoundError(session_id)
 
         result = await db.execute(
-            select(RecognitionResult).where(RecognitionResult.session_id == sid)
+            select(RecognitionResult).where(RecognitionResult.session_id == str(sid))
         )
         rec = result.scalar_one_or_none()
         if not rec:
             raise SessionNotFoundError(session_id)
 
         session_result = await db.execute(
-            select(SearchSession).where(SearchSession.id == sid)
+            select(SearchSession).where(SearchSession.id == str(sid))
         )
         search_session = session_result.scalar_one_or_none()
         if not search_session:
@@ -192,8 +221,11 @@ class RecognitionService:
         await db.commit()
 
         keywords = attrs.get("keywords", [attrs.get("category", "")])
+        if not keywords or all(not (kw and str(kw).strip()) for kw in keywords):
+            keywords = [attrs.get("category", "")] if attrs.get("category") and str(attrs.get("category")).strip() else [new_value]
+        keywords = [kw for kw in keywords if kw and str(kw).strip()]
         if not keywords:
-            keywords = [attrs.get("category", "")] if attrs.get("category") else [new_value]
+            keywords = [new_value]
 
         products = await self._search_service.search_all(
             keywords=keywords, session=search_session, db=db
@@ -212,23 +244,7 @@ class RecognitionService:
 
         return {
             "updated_attributes": updated_attributes,
-            "products": [
-                {
-                    "id": p.get("id", str(uuid.uuid4())),
-                    "name": p.get("name", ""),
-                    "price": float(p.get("price", 0)),
-                    "original_price": float(p["original_price"]) if p.get("original_price") else None,
-                    "platform": p.get("platform", ""),
-                    "shop_name": p.get("shop_name", ""),
-                    "shop_type": p.get("shop_type", "third_party"),
-                    "rating": float(p["rating"]) if p.get("rating") else None,
-                    "sales_count": int(p["sales_count"]) if p.get("sales_count") else None,
-                    "image_url": p.get("image_url", ""),
-                    "attributes": p.get("attributes", {}),
-                    "tags": p.get("tags", []),
-                }
-                for p in filtered_products
-            ],
+            "products": [serialize_product(p) for p in filtered_products],
         }
 
 

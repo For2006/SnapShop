@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     jd_site_id: str = ""
     jd_api_url: str = "https://router.jd.com/api"
 
+    # 淘宝联盟开放平台
+    taobao_app_key: str = ""
+    taobao_app_secret: str = ""
+    taobao_adzone_id: str = ""
+
     recognize_rate_limit: int = 10
     filter_rate_limit: int = 30
 
@@ -49,6 +54,11 @@ class Settings(BaseSettings):
     # 开发环境未设置时自动生成随机密钥
     jwt_secret: str = ""
     access_token_expire_hours: int = 24
+
+    def model_post_init(self, __context: object = None) -> None:
+        if not self.jwt_secret:
+            import secrets
+            self.jwt_secret = secrets.token_urlsafe(32)
 
 
 settings = Settings()

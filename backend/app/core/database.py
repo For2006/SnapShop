@@ -17,5 +17,14 @@ async def get_db():
 
 
 async def init_db():
+    from app.config import settings
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # 为旧数据库添加 is_mock 列
+        if "sqlite" in settings.database_url:
+            try:
+                await conn.execute(
+                    __import__("sqlalchemy").text("ALTER TABLE products ADD COLUMN is_mock BOOLEAN DEFAULT 0")
+                )
+            except Exception:
+                pass

@@ -1,8 +1,7 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, Numeric, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, Numeric, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON
 
@@ -13,10 +12,10 @@ class Product(Base):
     __tablename__ = "products"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        Uuid, primary_key=True, default=uuid.uuid4
     )
     session_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("search_sessions.id"), index=True
+        Uuid, ForeignKey("search_sessions.id", ondelete="CASCADE"), index=True
     )
     name: Mapped[str] = mapped_column(String(500))
     image_url: Mapped[str] = mapped_column(String(2000))
@@ -28,8 +27,9 @@ class Product(Base):
     rating: Mapped[float | None] = mapped_column(Numeric(2, 1), nullable=True)
     sales_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     product_url: Mapped[str] = mapped_column(String(2000), nullable=True, default="")
+    is_mock: Mapped[bool] = mapped_column(Boolean, default=False)
     attributes: Mapped[dict] = mapped_column(JSON, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     session = relationship("SearchSession", back_populates="products")
 

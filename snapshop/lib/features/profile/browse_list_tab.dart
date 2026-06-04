@@ -308,7 +308,7 @@ class _BrowseListTabState extends ConsumerState<BrowseListTab> {
                         Positioned(
                           top: 6,
                           left: 6,
-                          child: PlatformBadge(platform: snapshot['platform']?.toString() ?? ''),
+                          child: PlatformBadge(platform: snapshot['platform']?.toString() ?? '', isMock: snapshot['is_mock'] == true),
                         ),
                       ],
                     ),

@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
 from app.core.exceptions import SessionNotFoundError
-from app.models import Product
+from app.models import Product, SearchSession
 
 router = APIRouter()
 
@@ -24,17 +24,22 @@ async def get_products(
     except ValueError:
         raise SessionNotFoundError(session_id)
 
-    count_query = select(func.count(Product.id)).where(Product.session_id == sid)
-    total_result = await db.execute(count_query)
-    total = total_result.scalar() or 0
-
-    if total == 0:
+    session_result = await db.execute(
+        select(SearchSession.id).where(SearchSession.id == str(sid))
+    )
+    if not session_result.scalar_one_or_none():
         raise SessionNotFoundError(session_id)
 
-    query = select(Product).where(Product.session_id == sid)
+    query = select(Product).where(Product.session_id == str(sid))
 
     if platform and platform in ("taobao", "jd", "pdd"):
         query = query.where(Product.platform == platform)
+
+    count_query = select(func.count(Product.id)).where(Product.session_id == str(sid))
+    if platform and platform in ("taobao", "jd", "pdd"):
+        count_query = count_query.where(Product.platform == platform)
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
 
     if sort_by == "price_asc":
         query = query.order_by(Product.price.asc())
@@ -56,13 +61,15 @@ async def get_products(
             "id": str(p.id),
             "name": p.name,
             "price": float(p.price),
-            "original_price": float(p.original_price) if p.original_price else None,
+            "original_price": float(p.original_price) if p.original_price is not None else None,
             "platform": p.platform,
             "shop_name": p.shop_name,
             "shop_type": p.shop_type,
-            "rating": float(p.rating) if p.rating else None,
+            "rating": float(p.rating) if p.rating is not None else None,
             "sales_count": p.sales_count,
             "image_url": p.image_url,
+            "product_url": p.product_url or "",
+            "is_mock": p.is_mock,
             "attributes": p.attributes or {},
             "tags": [],
         }

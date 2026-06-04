@@ -9,6 +9,7 @@ class SseClient {
   final Map<String, String> queryParams;
   HttpClient? _client;
   StreamSubscription? _subscription;
+  bool _closed = false;
 
   SseClient({
     required this.url,
@@ -17,7 +18,11 @@ class SseClient {
   });
 
   Stream<Map<String, dynamic>> connect() {
-    final controller = StreamController<Map<String, dynamic>>();
+    final controller = StreamController<Map<String, dynamic>>(
+      onCancel: () {
+        close();
+      },
+    );
 
     _connect(controller);
 
@@ -42,7 +47,17 @@ class SseClient {
 
       _subscription = response.transform(utf8.decoder).listen(
         (data) {
+          if (_closed) return;
           buffer += data;
+          if (buffer.length > 2 * 1024 * 1024) {
+            final lastComplete = buffer.lastIndexOf('\n\n');
+            if (lastComplete >= 0) {
+              buffer = buffer.substring(lastComplete + 2);
+            } else {
+              buffer = '';
+            }
+            debugPrint('[SseClient] 缓冲区截断，保留尾部 ${buffer.length} 字节');
+          }
           while (buffer.contains('\n\n')) {
             final index = buffer.indexOf('\n\n');
             final event = buffer.substring(0, index);
@@ -53,7 +68,9 @@ class SseClient {
                 final jsonStr = line.substring(6);
                 try {
                   final parsed = jsonDecode(jsonStr) as Map<String, dynamic>;
-                  controller.add(parsed);
+                  if (!_closed) {
+                    controller.add(parsed);
+                  }
                 } catch (e) {
                   debugPrint('[SseClient] SSE parse error: $e');
                 }
@@ -62,19 +79,33 @@ class SseClient {
           }
         },
         onError: (error) {
-          controller.addError(error);
+          if (!_closed && !controller.isClosed) {
+            controller.addError(error);
+          }
+          close();
         },
         onDone: () {
-          controller.close();
+          if (!_closed && !controller.isClosed) {
+            controller.close();
+          }
+          _closed = true;
         },
       );
     } catch (e) {
-      controller.addError(e);
+      if (!_closed && !controller.isClosed) {
+        controller.addError(e);
+        controller.close();
+      }
+      _closed = true;
     }
   }
 
   void close() {
+    if (_closed) return;
+    _closed = true;
     _subscription?.cancel();
+    _subscription = null;
     _client?.close();
+    _client = null;
   }
 }

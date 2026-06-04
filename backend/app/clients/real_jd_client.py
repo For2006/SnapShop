@@ -202,6 +202,7 @@ class RealJDClient(BasePlatformClient):
             "sales_count": sales_count,
             "image_url": image_url,
             "product_url": f"https://item.jd.com/{item_id}.html",
+            "is_mock": False,
             "attributes": {
                 "brand": brand,
                 "category": category,

@@ -51,6 +51,7 @@ class TaobaoProduct:
     commission_rate: float
     is_tianmao: bool
     is_hot: bool
+    is_mock: bool = True
 
 
 class TaobaoMockDatabase:

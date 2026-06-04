@@ -5,7 +5,7 @@ from passlib.context import CryptContext
 
 from app.config import settings
 
-_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+_pwd_context = CryptContext(schemes=["bcrypt"], deprecated=[])
 
 
 def hash_password(password: str) -> str:
@@ -24,16 +24,33 @@ def _get_secret() -> str:
 
 
 def create_access_token(user_id: str) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(hours=settings.access_token_expire_hours)
-    to_encode = {"sub": user_id, "exp": expire, "aud": "snapshop-api", "iss": "snapshop"}
-    secret = _get_secret()
+    try:
+        secret = _get_secret()
+    except ValueError:
+        raise ValueError("JWT_SECRET 环境变量未设置，无法签发令牌")
+    now = datetime.now(timezone.utc)
+    expire = now + timedelta(hours=settings.access_token_expire_hours)
+    to_encode = {"sub": user_id, "exp": expire, "iat": now, "aud": "snapshop-api", "iss": "snapshop"}
     return jwt.encode(to_encode, secret, algorithm="HS256")
 
 
 def decode_access_token(token: str) -> str | None:
-    secret = _get_secret()
     try:
-        payload = jwt.decode(token, secret, algorithms=["HS256"], options={"verify_aud": True})
+        secret = _get_secret()
+    except ValueError:
+        return None
+    try:
+        payload = jwt.decode(
+            token,
+            secret,
+            algorithms=["HS256"],
+            audience="snapshop-api",
+            issuer="snapshop",
+            options={
+                "verify_exp": True,
+                "verify_iat": True,
+            },
+        )
         return payload.get("sub")
     except JWTError:
         return None

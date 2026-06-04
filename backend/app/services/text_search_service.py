@@ -1,17 +1,20 @@
 import uuid
+import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import SearchSession, SessionStatus
+from app.core.exceptions import AppException
 from app.services.search_service import SearchService
 from app.services.comparison_service import ComparisonService
 from app.services.suggestion_service import SuggestionService
 from app.services.product_serializer import serialize_product
 
+logger = logging.getLogger(__name__)
+
 
 class TextSearchService:
-    def __init__(self, llm_client=None):
-        self._llm_client = llm_client
-        self._search_service = SearchService()
+    def __init__(self, llm_client=None, search_service=None):
+        self._search_service = search_service or SearchService()
         self._comparison_service = ComparisonService()
         self._suggestion_service = SuggestionService()
 
@@ -30,15 +33,18 @@ class TextSearchService:
         db.add(session)
         await db.flush()
 
-        # 直接使用原始关键词，不等待缓慢的 LLM 扩展，提高响应速度
-        expanded_keywords = keywords
-
-        products = await self._search_service.search_all(
-            keywords=expanded_keywords, session=session, db=db
-        )
+        try:
+            products = await self._search_service.search_all(
+                keywords=keywords, session=session, db=db
+            )
+        except Exception as e:
+            logger.error(f"[TextSearch] 搜索异常: {e}")
+            session.status = SessionStatus.FAILED
+            await db.commit()
+            raise AppException(status_code=500, error_code="SEARCH_FAILED", message="搜索服务暂时不可用，请稍后重试")
 
         filtered_products, price_summary = self._comparison_service.compare_and_rerank(
-            products, expanded_keywords
+            products, keywords
         )
 
         from app.services.browse_recorder import record_browse_entries

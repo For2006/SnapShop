@@ -95,8 +95,34 @@ class _RecognitionPageState extends ConsumerState<RecognitionPage> {
 
   Future<void> _onSuggestionTap(MockSuggestion suggestion) async {
     final notifier = ref.read(homeProvider.notifier);
-    final sessionId = ref.read(homeProvider).sessionId;
+    final productNotifier = ref.read(productListProvider.notifier);
 
+    // 1. 立即本地执行，给用户即时反馈
+    final currentProducts = ref.read(productListProvider).products.isNotEmpty
+        ? ref.read(productListProvider).products
+        : ref.read(homeProvider).products;
+    switch (suggestion.action) {
+      case 'filter_pdd':
+        notifier.filterProducts(platform: 'pdd', baseProducts: currentProducts);
+        break;
+      case 'sort_price':
+        notifier.filterProducts(sort: 'price_asc', baseProducts: currentProducts);
+        break;
+      case 'filter_official':
+        notifier.filterProducts(shopType: 'official', baseProducts: currentProducts);
+        break;
+      default:
+        notifier.clearFilters();
+        productNotifier.updateProducts([]);
+        if (mounted) {
+          setState(() => _activeSort = SortOption.comprehensive);
+        }
+        return;
+    }
+    productNotifier.updateProducts(ref.read(homeProvider).products);
+
+    // 2. 后台尝试服务端筛选（成功后覆盖本地结果）
+    final sessionId = ref.read(homeProvider).sessionId;
     if (sessionId != null) {
       try {
         final response = await _api.post('/suggestions/action', data: {
@@ -104,34 +130,20 @@ class _RecognitionPageState extends ConsumerState<RecognitionPage> {
           'card_id': suggestion.id,
           'params': _buildSuggestionParams(suggestion),
         });
-        final data = response.data as Map<String, dynamic>;
-        final products = (data['products'] as List<dynamic>?)
-                ?.map(
-                    (e) => MockProduct.fromJson(e as Map<String, dynamic>))
-                .toList() ??
-            [];
-        if (products.isNotEmpty) {
-          ref.read(productListProvider.notifier).updateProducts(products);
-          return;
+        final raw = response.data;
+        if (raw is Map<String, dynamic>) {
+          final data = raw;
+          final products = (data['products'] as List<dynamic>?)
+                  ?.map((e) => MockProduct.fromJson(e as Map<String, dynamic>))
+                  .toList() ??
+              [];
+          if (products.isNotEmpty) {
+            productNotifier.updateProducts(products);
+          }
         }
       } catch (e) {
-        debugPrint('[RecognitionPage] _onSuggestionTap 接口失败: $e');
+        debugPrint('[RecognitionPage] _onSuggestionTap API 后备: $e');
       }
-    }
-
-    switch (suggestion.action) {
-      case 'filter_pdd':
-        notifier.filterProducts(platform: 'pdd');
-        break;
-      case 'sort_price':
-        notifier.filterProducts(sort: 'price_asc');
-        break;
-      case 'filter_official':
-        notifier.filterProducts(platform: 'taobao');
-        break;
-      default:
-        notifier.clearFilters();
-        setState(() => _activeSort = SortOption.comprehensive);
     }
   }
 
@@ -150,7 +162,13 @@ class _RecognitionPageState extends ConsumerState<RecognitionPage> {
 
   void _onSortChanged(SortOption sortKey) {
     setState(() => _activeSort = sortKey);
-    final sessionId = ref.read(homeProvider).sessionId;
+
+    final productNotifier = ref.read(productListProvider.notifier);
+    // 首次排序时，从 homeProvider 同步商品列表
+    if (ref.read(productListProvider).products.isEmpty) {
+      productNotifier.updateProducts(ref.read(homeProvider).products);
+    }
+
     String sortBy;
     switch (sortKey) {
       case SortOption.priceAsc:
@@ -162,13 +180,28 @@ class _RecognitionPageState extends ConsumerState<RecognitionPage> {
       default:
         sortBy = 'comprehensive';
     }
-    ref.read(productListProvider.notifier).sortProducts(sortBy, sessionId);
+    productNotifier.sortProducts(sortBy);
   }
 
   void _onFilterSubmit(String text) {
     if (text.trim().isEmpty) return;
     final sessionId = ref.read(homeProvider).sessionId;
-    if (sessionId == null) return;
+    final l10n = AppLocalizations.of(context);
+    if (sessionId == null) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(l10n.filterNoSession),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(l10n.okLabel),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
 
     ref.read(filterProvider.notifier).setFilterText(text);
 
@@ -177,11 +210,37 @@ class _RecognitionPageState extends ConsumerState<RecognitionPage> {
       onProductsUpdated: (products) {
         ref.read(productListProvider.notifier).updateProducts(products);
       },
-    );
+    ).then((success) {
+      if (!success) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(l10n.filterNetworkError),
+            content: Text(l10n.favoriteFailedNetwork),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(l10n.okLabel),
+              ),
+            ],
+          ),
+        );
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    // 新搜索开始时清空 productListProvider，避免显示上一次的旧结果
+    ref.listen(homeProvider, (prev, next) {
+      if (prev != null &&
+          prev.recognitionStatus != RecognitionStatus.recognizing &&
+          next.recognitionStatus == RecognitionStatus.recognizing) {
+        ref.read(productListProvider.notifier).updateProducts([]);
+        _activeSort = SortOption.comprehensive;
+      }
+    });
+
     final homeState = ref.watch(homeProvider);
     final filterState = ref.watch(filterProvider);
     final productState = ref.watch(productListProvider);
@@ -207,11 +266,14 @@ class _RecognitionPageState extends ConsumerState<RecognitionPage> {
         body: ErrorRetry(
           message: homeState.errorMessage!,
           onRetry: () {
-            final query = ref.read(homeProvider).searchQuery;
-            if (query.isNotEmpty) {
-              ref.read(homeProvider.notifier).submitTextSearch(query);
+            final notifier = ref.read(homeProvider.notifier);
+            if (notifier.isTextOperation) {
+              final query = ref.read(homeProvider).searchQuery;
+              if (query.isNotEmpty) {
+                notifier.submitTextSearch(query);
+              }
             } else {
-              ref.read(homeProvider.notifier).startRecognition();
+              notifier.startRecognition();
             }
           },
         ),

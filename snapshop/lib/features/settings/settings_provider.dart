@@ -27,14 +27,7 @@ enum LocaleOption {
     }
   }
 
-  String get displayName {
-    switch (this) {
-      case LocaleOption.zh:
-        return '简体中文';
-      case LocaleOption.en:
-        return 'English';
-    }
-  }
+  String get displayName => label;
 
   static LocaleOption fromLocale(Locale locale) {
     if (locale.languageCode == 'zh') return LocaleOption.zh;
@@ -176,6 +169,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
 
   Future<void> _loadFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
+    await ApiClient.loadToken();
 
     final storedLocale = prefs.getString(_localeKey);
     final localeOption = storedLocale != null
@@ -273,98 +267,68 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     }
     await prefs.setString(_nicknameKey, nickname);
     await prefs.setString(_bioKey, bio);
-    state = state.copyWith(avatarPath: avatarPath, nickname: nickname, bio: bio);
+    state = state.copyWith(
+      avatarPath: avatarPath ?? state.avatarPath,
+      nickname: nickname,
+      bio: bio,
+    );
+  }
+
+  String _handleAuthError(DioException e, String fallback) {
+    if (e.response != null) {
+      final detail = e.response!.data;
+      if (detail is Map<String, dynamic>) {
+        return detail['message']?.toString() ?? fallback;
+      }
+    }
+    if (e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.receiveTimeout) {
+      return '网络连接超时，请检查网络后重试';
+    }
+    if (e.type == DioExceptionType.connectionError) {
+      return '无法连接服务器，请检查网络后重试';
+    }
+    return '$fallback（网络错误）';
+  }
+
+  Future<String?> _authRequest(String endpoint, String phone, String password) async {
+    final api = ApiClient();
+    try {
+      final response = await api.post(endpoint, data: {
+        'phone': phone,
+        'password': password,
+      });
+      final data = response.data as Map<String, dynamic>;
+      final token = data['access_token'] as String;
+      await ApiClient.setToken(token);
+      final user = data['user'] as Map<String, dynamic>;
+      final nickname = user['nickname']?.toString() ?? phone;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_isLoggedInKey, true);
+      await prefs.setString(_nicknameKey, nickname);
+      state = state.copyWith(isLoggedIn: true, nickname: nickname);
+      _loadStats();
+      return null;
+    } on DioException catch (e) {
+      return _handleAuthError(e, endpoint == '/auth/login' ? '登录失败' : '注册失败');
+    } catch (e) {
+      return '${endpoint == '/auth/login' ? '登录' : '注册'}失败：$e';
+    }
   }
 
   Future<String?> login(String phone, String password) async {
-    final api = ApiClient();
-    try {
-      final response = await api.post('/auth/login', data: {
-        'phone': phone,
-        'password': password,
-      });
-      final data = response.data as Map<String, dynamic>;
-      final token = data['access_token'] as String;
-      await ApiClient.setToken(token);
-      final user = data['user'] as Map<String, dynamic>;
-      final nickname = user['nickname']?.toString() ?? phone;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_isLoggedInKey, true);
-      await prefs.setString(_nicknameKey, nickname);
-      state = state.copyWith(isLoggedIn: true, nickname: nickname);
-      _loadStats();
-      return null;
-    } on DioException catch (e) {
-      if (e.response != null) {
-        final detail = e.response!.data;
-        if (detail is Map<String, dynamic>) {
-          return detail['message']?.toString() ?? '登录失败';
-        }
-      }
-      if (e.type == DioExceptionType.connectionTimeout ||
-          e.type == DioExceptionType.receiveTimeout) {
-        return '网络连接超时，请检查网络后重试';
-      }
-      if (e.type == DioExceptionType.connectionError) {
-        return '无法连接服务器，请检查网络后重试';
-      }
-      return '登录失败（网络错误）';
-    } catch (e) {
-      return '登录失败：$e';
-    }
+    return _authRequest('/auth/login', phone, password);
   }
 
   Future<String?> register(String phone, String password) async {
-    final api = ApiClient();
-    try {
-      final response = await api.post('/auth/register', data: {
-        'phone': phone,
-        'password': password,
-      });
-      final data = response.data as Map<String, dynamic>;
-      final token = data['access_token'] as String;
-      await ApiClient.setToken(token);
-      final user = data['user'] as Map<String, dynamic>;
-      final nickname = user['nickname']?.toString() ?? phone;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_isLoggedInKey, true);
-      await prefs.setString(_nicknameKey, nickname);
-      state = state.copyWith(isLoggedIn: true, nickname: nickname);
-      _loadStats();
-      return null;
-    } on DioException catch (e) {
-      if (e.response != null) {
-        final detail = e.response!.data;
-        if (detail is Map<String, dynamic>) {
-          return detail['message']?.toString() ?? '注册失败';
-        }
-      }
-      if (e.type == DioExceptionType.connectionTimeout ||
-          e.type == DioExceptionType.receiveTimeout) {
-        return '网络连接超时，请检查网络后重试';
-      }
-      if (e.type == DioExceptionType.connectionError) {
-        return '无法连接服务器，请检查网络后重试';
-      }
-      return '注册失败（网络错误）';
-    } catch (e) {
-      return '注册失败：$e';
-    }
+    return _authRequest('/auth/register', phone, password);
   }
 
   Future<void> logout() async {
     await ApiClient.clearToken();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_avatarKey);
-    await prefs.remove(_nicknameKey);
-    await prefs.remove(_bioKey);
     await prefs.setBool(_isLoggedInKey, false);
-    state = state.copyWith(
-      isLoggedIn: false,
-      avatarPath: null,
-      nickname: 'SnapShop 用户',
-      bio: '',
-    );
+    state = state.copyWith(isLoggedIn: false);
   }
 }
 

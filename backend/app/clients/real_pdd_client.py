@@ -49,10 +49,10 @@ class RealPDDClient(BasePlatformClient):
                     results.append(self._transform(g))
             except PDDAPIError as e:
                 logger.warning("PDD API error for kw=%s: code=%s msg=%s", kw, e.code, e.message)
-                raise  # 向上抛出，让 search_service 感知到失败
+                continue
             except Exception as e:
                 logger.warning("PDD search error for kw=%s: %s", kw, e)
-                raise
+                continue
 
         seen: set[str] = set()
         deduped: list[dict] = []
@@ -93,12 +93,16 @@ class RealPDDClient(BasePlatformClient):
         data = await self._request(params)
         return data.get("goods_basic_detail_response", {}).get("list", [])
 
+    async def _get_client(self) -> httpx.AsyncClient:
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.AsyncClient(timeout=8.0)
+        return self._client
+
     async def _request(self, params: dict) -> dict:
         sign = self._sign(params)
         body = {"sign": sign, **params}
-        if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(timeout=8.0)
-        resp = await self._client.post(self._api_url, json=body)
+        client = await self._get_client()
+        resp = await client.post(self._api_url, json=body)
         resp.raise_for_status()
         data = resp.json()
         error = data.get("error_response")
@@ -110,8 +114,9 @@ class RealPDDClient(BasePlatformClient):
         return data
 
     async def close(self) -> None:
-        if self._client is not None and not self._client.is_closed:
-            await self._client.aclose()
+        if self._client is not None:
+            if not self._client.is_closed:
+                await self._client.aclose()
             self._client = None
 
     def _sign(self, params: dict) -> str:
@@ -132,7 +137,9 @@ class RealPDDClient(BasePlatformClient):
         except (ValueError, TypeError):
             sales_count = 0
 
-        goods_id = str(raw.get("goods_sign", "") or raw.get("goods_id", ""))
+        goods_sign = str(raw.get("goods_sign", ""))
+        numeric_goods_id = str(raw.get("goods_id", ""))
+        goods_id = numeric_goods_id or goods_sign
 
         brand = raw.get("brand_name") or ""
         cat_ids = raw.get("cat_ids") or []
@@ -154,6 +161,8 @@ class RealPDDClient(BasePlatformClient):
         if raw.get("has_coupon"):
             tags.append("有优惠券")
 
+        product_url = f"https://mobile.yangkeduo.com/goods.html?goods_id={numeric_goods_id}" if numeric_goods_id else ""
+
         return {
             "id": f"pdd_{goods_id}",
             "name": raw.get("goods_name", ""),
@@ -165,7 +174,8 @@ class RealPDDClient(BasePlatformClient):
             "rating": None,
             "sales_count": sales_count,
             "image_url": raw.get("goods_thumbnail_url", "") or raw.get("goods_image_url", ""),
-            "product_url": f"https://mobile.yangkeduo.com/goods.html?goods_id={goods_id}",
+            "product_url": product_url,
+            "is_mock": False,
             "attributes": {
                 "brand": brand,
                 "category": category,

@@ -4,8 +4,9 @@ import '../../config/theme_context.dart';
 
 class PlatformBadge extends StatelessWidget {
   final String platform;
+  final bool isMock;
 
-  const PlatformBadge({super.key, required this.platform});
+  const PlatformBadge({super.key, required this.platform, this.isMock = false});
 
   @override
   Widget build(BuildContext context) {
@@ -16,6 +17,8 @@ class PlatformBadge extends StatelessWidget {
       _ => (context.colors.textTertiary, platform),
     };
 
+    final displayLabel = isMock ? '$label+模拟' : label;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
       decoration: BoxDecoration(
@@ -23,7 +26,7 @@ class PlatformBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(3),
       ),
       child: Text(
-        label,
+        displayLabel,
         style: TextStyle(
           color: context.colors.surface,
           fontSize: context.fs(9),

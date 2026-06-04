@@ -31,6 +31,20 @@ from app.schemas.common import ErrorResponse
 async def lifespan(app: FastAPI):
     await init_db()
     yield
+    await _cleanup_clients()
+
+
+async def _cleanup_clients():
+    from app.api.deps import _service_registry
+    from app.services.search_service import SearchService
+
+    for key, svc in list(_service_registry.items()):
+        if isinstance(svc, SearchService):
+            for client in svc.get_clients():
+                try:
+                    await client.close()
+                except Exception:
+                    pass
 
 
 app = FastAPI(
@@ -64,25 +78,16 @@ async def add_process_time_header(request: Request, call_next):
 async def security_headers_middleware(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Content-Security-Policy"] = "frame-ancestors 'none'"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     return response
 
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
-    if isinstance(exc, AppException):
-        raise exc
     if settings.debug:
         logger.exception("Internal error on %s %s", request.method, request.url.path)
-        return JSONResponse(
-            status_code=500,
-            content={
-                "error_code": "INTERNAL_ERROR",
-                "message": "服务器内部错误: %s" % exc.__class__.__name__,
-                "detail": None,
-            },
-        )
     return JSONResponse(
         status_code=500,
         content={
@@ -91,6 +96,7 @@ async def global_exception_handler(request, exc):
             "detail": None,
         },
     )
+
 
 app.include_router(auth.router, prefix="/api/v1", tags=["auth"])
 app.include_router(recognize.router, prefix="/api/v1", tags=["recognize"])

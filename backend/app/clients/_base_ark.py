@@ -92,14 +92,14 @@ class BaseArkClient:
                     await asyncio.sleep(delay)
                     continue
                 raise self.ClientError(f"Network error after {self._max_retries} retries: {e}") from e
-            except Exception as e:
+            except (json.JSONDecodeError, KeyError, IndexError, TypeError, ValueError, asyncio.TimeoutError) as e:
                 last_exception = e
-                logger.error(f"[Ark] 未知错误 attempt={attempt}: {type(e).__name__}: {e}")
+                logger.warning(f"[Ark] 可重试错误 attempt={attempt}: {type(e).__name__}: {e}")
                 if attempt < self._max_retries:
                     delay = self._retry_delays[min(attempt, len(self._retry_delays) - 1)]
                     await asyncio.sleep(delay)
                     continue
-                raise self.ClientError(f"Unexpected error: {e}") from e
+                raise self.ClientError(f"Client error: {e}") from e
 
         raise self.ClientError(
             f"API call failed after {self._max_retries} retries: {last_exception}"

@@ -1,6 +1,9 @@
 import re
+import logging
 from abc import ABC, abstractmethod
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class BaseLLMFallbackStrategy(ABC):
@@ -85,6 +88,6 @@ class FilterStrategyContext:
         if self.llm_strategy:
             try:
                 return await self.llm_strategy.parse_filter(user_input, context)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"[FilterStrategy] LLM策略失败({type(e).__name__})，回退到正则")
         return await self.regex_strategy.parse_filter(user_input, context)

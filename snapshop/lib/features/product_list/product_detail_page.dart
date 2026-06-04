@@ -33,6 +33,25 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
   void initState() {
     super.initState();
     _recordBrowse();
+    _checkFavoriteStatus();
+  }
+
+  Future<void> _checkFavoriteStatus() async {
+    try {
+      final api = ApiClient();
+      final token = ApiClient.accessToken;
+      if (token == null || token.isEmpty) return;
+      final response = await api.get('/favorites/${widget.product.id}');
+      if (mounted) {
+        setState(() => _favorited = true);
+      }
+    } on DioException catch (e) {
+      if (e.response?.statusCode != 404 && mounted) {
+        setState(() => _favorited = false);
+      }
+    } catch (_) {
+      // 无法验证收藏状态，保持默认值
+    }
   }
 
   Future<void> _recordBrowse() async {
@@ -52,6 +71,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
           'shop_type': widget.product.shopType,
           'rating': widget.product.rating,
           'sales_count': widget.product.salesCount,
+          'is_mock': widget.product.isMock,
           'tags': widget.product.tags,
         },
       });
@@ -64,21 +84,22 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
   Future<void> _toggleFavorite() async {
     if (_toggling) return;
 
+    final l10n = AppLocalizations.of(context);
     final isLoggedIn = ref.read(settingsProvider).isLoggedIn;
     if (!isLoggedIn) {
       final go = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('需要登录'),
-          content: const Text('收藏功能需要登录账号，是否前往登录？'),
+          title: Text(l10n.favoriteNeedLoginTitle),
+          content: Text(l10n.favoriteNeedLoginContent),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('取消'),
+              child: Text(l10n.cancel),
             ),
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('去登录'),
+              child: Text(l10n.goToLogin),
             ),
           ],
         ),
@@ -110,6 +131,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
             'shop_type': widget.product.shopType,
             'rating': widget.product.rating,
             'sales_count': widget.product.salesCount,
+            'is_mock': widget.product.isMock,
             'tags': widget.product.tags,
           },
         });
@@ -117,14 +139,14 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
     } on DioException catch (e) {
       setState(() => _favorited = wasFavorited);
       if (mounted) {
-        String message = '收藏操作失败，请重试';
+        String message = l10n.favoriteFailed;
         if (e.response != null) {
           final detail = e.response!.data;
           if (detail is Map<String, dynamic>) {
             message = detail['message']?.toString() ?? message;
           }
         } else if (e.type == DioExceptionType.connectionError) {
-          message = '无法连接服务器，请检查网络';
+          message = l10n.favoriteFailedNetwork;
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
@@ -134,7 +156,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
       setState(() => _favorited = wasFavorited);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('收藏失败：$e'), duration: const Duration(seconds: 2)),
+          SnackBar(content: Text('${l10n.favoriteFailed}: $e'), duration: const Duration(seconds: 2)),
         );
       }
     } finally {
@@ -143,20 +165,29 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
   }
 
   Future<void> _openExternalLink() async {
+    final l10n = AppLocalizations.of(context);
     if (widget.product.isMock) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Mock数据不支持跳转到电商平台'), duration: Duration(seconds: 2)),
+          SnackBar(content: Text(l10n.mockNotSupported), duration: const Duration(seconds: 2)),
         );
       }
       return;
     }
     final uri = Uri.parse(widget.product.productUrl);
+    if (uri.scheme != 'http' && uri.scheme != 'https') {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.linkOpenFailed), duration: const Duration(seconds: 2)),
+        );
+      }
+      return;
+    }
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('无法打开商品链接'), duration: Duration(seconds: 2)),
+        SnackBar(content: Text(l10n.linkOpenFailed), duration: const Duration(seconds: 2)),
       );
     }
   }
@@ -189,7 +220,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                   Positioned(
                     top: 16,
                     left: 16,
-                    child: PlatformBadge(platform: widget.product.platform),
+                    child: PlatformBadge(platform: widget.product.platform, isMock: widget.product.isMock),
                   ),
                 ],
               ),
@@ -274,7 +305,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                widget.product.shopType == 'official' ? '官方旗舰店' : '第三方店铺',
+                                l10n.storeTypeLabel(widget.product.shopType),
                                 style: TextStyle(
                                   fontSize: context.fs(11),
                                   color: Colors.blue,
@@ -308,7 +339,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    '评分',
+                                    l10n.rating,
                                     style: TextStyle(
                                       fontSize: context.fs(11),
                                       color: context.colors.textTertiary,
@@ -335,7 +366,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    '销量',
+                                    l10n.salesLabel,
                                     style: TextStyle(
                                       fontSize: context.fs(11),
                                       color: context.colors.textTertiary,
@@ -352,7 +383,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                   const SizedBox(height: 20),
                   if (widget.product.tags.isNotEmpty) ...[
                     Text(
-                      '商品标签',
+                      l10n.productTags,
                       style: TextStyle(
                         fontSize: context.fs(15),
                         fontWeight: FontWeight.w600,
@@ -367,9 +398,9 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                         return Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFEF2F2),
+                            color: AppColors.priceRed.withAlpha(20),
                             borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFFFECACA)),
+                            border: Border.all(color: AppColors.priceRed.withAlpha(50)),
                           ),
                           child: Text(
                             tag,
@@ -385,7 +416,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                   ],
                   if (widget.product.attributes.isNotEmpty) ...[
                     Text(
-                      '商品属性',
+                      l10n.productAttributes,
                       style: TextStyle(
                         fontSize: context.fs(15),
                         fontWeight: FontWeight.w600,
@@ -499,7 +530,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                   ),
                   icon: const Icon(Icons.open_in_new, size: 20),
                   label: Text(
-                    '前往电商平台查看',
+                    l10n.goToPlatform,
                     style: TextStyle(
                       fontSize: context.fs(15),
                       fontWeight: FontWeight.w600,

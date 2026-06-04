@@ -50,6 +50,7 @@ class JDProduct:
     coupon_amount: float
     is_self_operated: bool
     is_jd_logistics: bool
+    is_mock: bool = True
 
 
 class JDMockDatabase:

@@ -11,6 +11,7 @@ class ApiClient {
   static const _tokenKey = 'snapshop_access_token';
   static String? _deviceId;
   static String? _accessToken;
+  static Future<String>? _deviceIdFuture;
 
   late final Dio dio;
 
@@ -28,7 +29,7 @@ class ApiClient {
     ));
 
     dio.interceptors.add(LogInterceptor(
-      requestBody: kDebugMode,
+      requestBody: false,
       responseBody: kDebugMode,
     ));
 
@@ -62,6 +63,23 @@ class ApiClient {
 
   static Future<String> _getDeviceId() async {
     if (_deviceId != null) return _deviceId!;
+    if (_deviceIdFuture != null) {
+      try {
+        return await _deviceIdFuture!;
+      } catch (_) {
+        _deviceIdFuture = null;
+      }
+    }
+    _deviceIdFuture = _initDeviceId();
+    try {
+      return await _deviceIdFuture!;
+    } catch (_) {
+      _deviceIdFuture = null;
+      rethrow;
+    }
+  }
+
+  static Future<String> _initDeviceId() async {
     final prefs = await SharedPreferences.getInstance();
     _deviceId = prefs.getString(_deviceIdKey);
     if (_deviceId == null) {
@@ -70,6 +88,12 @@ class ApiClient {
     }
     return _deviceId!;
   }
+
+  static Future<String> getDeviceId() => _getDeviceId();
+
+  static String? get accessToken => _accessToken;
+
+  String get baseUrl => dio.options.baseUrl;
 
   Future<Response> post(String path, {dynamic data}) async {
     return dio.post(path, data: data);

@@ -8,6 +8,7 @@ import '../../config/route_observer.dart';
 import '../../core/network/api_client.dart';
 import '../../core/history_item.dart';
 import '../settings/settings_provider.dart';
+import '../product_list/product_provider.dart';
 import 'home_provider.dart';
 import 'main_search_bar.dart';
 import 'gallery_picker_sheet.dart';
@@ -134,12 +135,17 @@ class _HomePageState extends ConsumerState<HomePage>
 
     // 历史记录关闭时刷新，下次打开为全新状态
     if (!isHistoryOpen && _prevIsHistoryOpen) {
-      _historyRefreshKey++;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _historyRefreshKey++;
+        _prevIsHistoryOpen = false;
+      });
     }
     if (isHistoryOpen && !_prevIsHistoryOpen) {
-      _loadHistory();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadHistory();
+        _prevIsHistoryOpen = true;
+      });
     }
-    _prevIsHistoryOpen = isHistoryOpen;
 
     // 非拖拽时由 state 驱动动画
     if (!_isUserDragging) {
@@ -317,7 +323,7 @@ class _HomePageState extends ConsumerState<HomePage>
                 GestureDetector(
                   onTap: () => _showClearAllDialog(context),
                   child: Text(
-                    '清空',
+                    AppLocalizations.of(context).historyClearConfirm,
                     style: TextStyle(
                       fontSize: context.fs(12),
                       color: Colors.red.withValues(alpha: 0.8),
@@ -351,6 +357,7 @@ class _HomePageState extends ConsumerState<HomePage>
           child: InkWell(
             onTap: () {
               ref.read(homeProvider.notifier).setSearchQuery(item.displayText);
+              ref.read(productListProvider.notifier).updateProducts([]);
               ref.read(homeProvider.notifier).submitTextSearch(item.displayText);
               ref.read(homeProvider.notifier).closeHistory();
               context.push('/results');
@@ -409,7 +416,7 @@ class _HomePageState extends ConsumerState<HomePage>
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      isImage ? '拍照' : '搜索',
+                      isImage ? AppLocalizations.of(context).historyTypeImage : AppLocalizations.of(context).historyTypeText,
                       style: TextStyle(
                         fontSize: context.fs(11),
                         color: isImage ? AppColors.brandBlue : context.colors.textSecondary,
@@ -430,19 +437,20 @@ class _HomePageState extends ConsumerState<HomePage>
   }
 
   void _showClearAllDialog(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('清空搜索记录'),
-        content: const Text('确定要清空所有搜索记录吗？此操作不可恢复。'),
+        title: Text(l10n.historyClearTitle),
+        content: Text(l10n.historyClearMessage),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.cacheCancel)),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
               _doClearAll();
             },
-            child: const Text('清空', style: TextStyle(color: Colors.red)),
+            child: Text(l10n.historyClearConfirm, style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -450,19 +458,21 @@ class _HomePageState extends ConsumerState<HomePage>
   }
 
   void _showDeleteDialog(BuildContext context, HistoryItem item) {
+    final l10n = AppLocalizations.of(context);
+    final isImage = item.searchType == 'image';
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('删除记录'),
-        content: Text('确定要删除这条${item.searchType == 'image' ? '拍照识别' : '搜索'}记录吗？'),
+        title: Text(l10n.historyDeleteTitle),
+        content: Text(isImage ? l10n.historyDeleteMessageImage : l10n.historyDeleteMessageText),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.cacheCancel)),
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx);
               await _doDeleteItem(item);
             },
-            child: const Text('删除', style: TextStyle(color: Colors.red)),
+            child: Text(l10n.historyDeleteConfirm, style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -510,12 +520,8 @@ class _HomePageState extends ConsumerState<HomePage>
   String _formatHistoryTime(String iso) {
     try {
       final dt = DateTime.parse(iso).toLocal();
-      final now = DateTime.now();
-      final diff = now.difference(dt);
-      if (diff.inMinutes < 60) return '${diff.inMinutes}分钟前';
-      if (diff.inHours < 24) return '${diff.inHours}小时前';
-      if (diff.inDays < 7) return '${diff.inDays}天前';
-      return '${dt.month}/${dt.day}';
+      final l10n = AppLocalizations.of(context);
+      return l10n.formatRelativeTime(dt);
     } catch (_) {
       return '';
     }
@@ -567,9 +573,7 @@ class _HomePageState extends ConsumerState<HomePage>
       final response = await api.get('/history');
       final data = response.data;
       List<HistoryItem> items = [];
-      if (data is List) {
-        items = data.map((e) => HistoryItem.fromJson(e as Map<String, dynamic>)).toList();
-      } else if (data is Map && data['items'] is List) {
+      if (data is Map && data['items'] is List) {
         items = (data['items'] as List).map((e) => HistoryItem.fromJson(e as Map<String, dynamic>)).toList();
       }
       if (mounted) setState(() { _historyItems = items; _historyLoading = false; });

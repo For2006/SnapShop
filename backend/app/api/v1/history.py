@@ -106,7 +106,7 @@ async def delete_search_history(
 
     result = await db.execute(
         select(SearchSession).where(
-            SearchSession.id == sid,
+            SearchSession.id == str(sid),
             SearchSession.device_id == device_id,
         )
     )
@@ -114,10 +114,10 @@ async def delete_search_history(
     if not session:
         raise HTTPException(status_code=404, detail={"error_code": "NOT_FOUND", "message": "记录不存在"})
 
-    await db.execute(delete(FilterAction).where(FilterAction.session_id == sid))
-    await db.execute(delete(Product).where(Product.session_id == sid))
-    await db.execute(delete(RecognitionResult).where(RecognitionResult.session_id == sid))
-    await db.execute(delete(SearchSession).where(SearchSession.id == sid))
+    await db.execute(delete(FilterAction).where(FilterAction.session_id == str(sid)))
+    await db.execute(delete(Product).where(Product.session_id == str(sid)))
+    await db.execute(delete(RecognitionResult).where(RecognitionResult.session_id == str(sid)))
+    await db.execute(delete(SearchSession).where(SearchSession.id == str(sid)))
     await db.commit()
 
     return {"ok": True}

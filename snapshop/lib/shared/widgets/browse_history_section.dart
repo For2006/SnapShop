@@ -15,6 +15,7 @@ class BrowseHistoryItem {
   final String imageUrl;
   final String? shopName;
   final String? viewedAt;
+  final bool isMock;
 
   const BrowseHistoryItem({
     required this.id,
@@ -25,6 +26,7 @@ class BrowseHistoryItem {
     required this.imageUrl,
     this.shopName,
     this.viewedAt,
+    this.isMock = false,
   });
 
   factory BrowseHistoryItem.fromJson(Map<String, dynamic> json) {
@@ -38,6 +40,7 @@ class BrowseHistoryItem {
       imageUrl: snap['image_url']?.toString() ?? '',
       shopName: snap['shop_name']?.toString(),
       viewedAt: json['viewed_at']?.toString(),
+      isMock: snap['is_mock'] == true,
     );
   }
 
@@ -54,6 +57,7 @@ class BrowseHistoryItem {
       rating: 0,
       salesCount: 0,
       productUrl: '',
+      isMock: isMock,
       tags: const [],
     );
   }
@@ -164,7 +168,7 @@ class BrowseHistorySection extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        PlatformBadge(platform: item.platform),
+                        PlatformBadge(platform: item.platform, isMock: item.isMock),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(

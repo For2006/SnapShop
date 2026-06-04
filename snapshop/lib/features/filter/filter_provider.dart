@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/network/sse_client.dart';
@@ -26,49 +27,109 @@ class FilterState {
 
 class FilterNotifier extends StateNotifier<FilterState> {
   final ApiClient _api = ApiClient();
+  SseClient? _sseClient;
 
   FilterNotifier() : super(const FilterState());
+
+  @override
+  void dispose() {
+    _sseClient?.close();
+    _sseClient = null;
+    super.dispose();
+  }
 
   void setFilterText(String text) {
     state = state.copyWith(filterText: text);
   }
 
-  Future<void> submitFilter({
+  Future<bool> submitFilter({
     required String sessionId,
     required void Function(List<MockProduct> products) onProductsUpdated,
   }) async {
-    if (state.filterText.trim().isEmpty) return;
+    if (state.filterText.trim().isEmpty) return false;
     state = state.copyWith(isFiltering: true);
 
-    try {
-      final client = SseClient(
-        url: '${_api.dio.options.baseUrl}/filter/stream',
-        queryParams: {
-          'session_id': sessionId,
-          'filter_text': state.filterText.trim(),
-        },
-      );
-      final stream = client.connect();
-      final products = <MockProduct>[];
+    var lastError = '';
+    for (var retry = 0; retry < 3; retry++) {
+      if (retry > 0) {
+        await Future.delayed(Duration(milliseconds: 500 * retry));
+      }
+      try {
+        final success = await _connect(sessionId, onProductsUpdated);
+        if (success) {
+          state = state.copyWith(isFiltering: false);
+          return true;
+        }
+      } catch (e) {
+        lastError = e.toString();
+        debugPrint('[FilterProvider] SSE attempt $retry failed: $e');
+      }
+    }
 
+    debugPrint('[FilterProvider] SSE all retries failed: $lastError');
+    state = state.copyWith(isFiltering: false);
+    return false;
+  }
+
+  Future<bool> _connect(
+    String sessionId,
+    void Function(List<MockProduct> products) onProductsUpdated,
+  ) async {
+    final deviceId = await ApiClient.getDeviceId();
+    final token = ApiClient.accessToken;
+    final headers = <String, String>{
+      'X-Device-Id': deviceId,
+    };
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    final client = SseClient(
+      url: '${_api.baseUrl}/filter/stream',
+      queryParams: {
+        'session_id': sessionId,
+        'filter_text': state.filterText.trim(),
+      },
+      headers: headers,
+    );
+    _sseClient?.close();
+    _sseClient = client;
+    final stream = client.connect();
+    final products = <MockProduct>[];
+    var lastUpdate = 0;
+    var gotData = false;
+
+    try {
       await for (final event in stream) {
+        gotData = true;
         final type = event['type'] as String?;
         if (type == 'product') {
           final productData = event['product'] as Map<String, dynamic>?;
           if (productData != null) {
             products.add(MockProduct.fromJson(productData));
-            onProductsUpdated(List.from(products));
+            if (products.length - lastUpdate >= 3) {
+              lastUpdate = products.length;
+              onProductsUpdated(List.from(products));
+            }
           }
         } else if (type == 'done') {
-          break;
+          if (products.length > lastUpdate || products.isEmpty) {
+            onProductsUpdated(List.from(products));
+          }
+          _sseClient?.close();
+          _sseClient = null;
+          return true;
+        } else if (type == 'error') {
+          _sseClient?.close();
+          _sseClient = null;
+          return gotData;
         }
       }
-      client.close();
+      return gotData;
     } catch (e) {
-      debugPrint('[FilterProvider] SSE stream error: $e');
+      _sseClient?.close();
+      _sseClient = null;
+      rethrow;
     }
-
-    state = state.copyWith(isFiltering: false);
   }
 
   void clearFilter() {

@@ -32,37 +32,36 @@ class AttributeChip extends StatelessWidget {
                 : AppColors.successGreenBorder,
           ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '${attribute.label}: ',
-              style: TextStyle(
-                fontSize: context.fs(12),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.85,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  '${attribute.label}: ${attribute.value}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: context.fs(12),
+                    color: _isLowConfidence
+                        ? AppColors.warningAmber
+                        : AppColors.successGreen,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Icon(
+                _isLowConfidence ? Icons.warning_amber_rounded : Icons.check_circle,
+                size: 14,
                 color: _isLowConfidence
                     ? AppColors.warningAmber
-                    : AppColors.successGreen,
+                    : AppColors.successGreen.withValues(alpha: 0.6),
               ),
-            ),
-            Text(
-              attribute.value,
-              style: TextStyle(
-                fontSize: context.fs(12),
-                fontWeight: FontWeight.w600,
-                color: _isLowConfidence
-                    ? AppColors.warningAmber
-                    : AppColors.successGreen,
-              ),
-            ),
-            const SizedBox(width: 6),
-            Icon(
-              _isLowConfidence ? Icons.warning_amber_rounded : Icons.check_circle,
-              size: 14,
-              color: _isLowConfidence
-                  ? AppColors.warningAmber
-                  : AppColors.successGreen.withValues(alpha: 0.6),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

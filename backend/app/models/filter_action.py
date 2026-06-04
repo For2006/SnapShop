@@ -1,8 +1,7 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON
 
@@ -13,15 +12,15 @@ class FilterAction(Base):
     __tablename__ = "filter_actions"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        Uuid, primary_key=True, default=uuid.uuid4
     )
     session_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("search_sessions.id"), index=True
+        Uuid, ForeignKey("search_sessions.id", ondelete="CASCADE"), index=True
     )
     action_type: Mapped[str] = mapped_column(String(20))
     filter_text: Mapped[str | None] = mapped_column(String(500), nullable=True)
     params: Mapped[dict] = mapped_column(JSON, default=dict)
     result_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     session = relationship("SearchSession", back_populates="filter_actions")

@@ -6,6 +6,7 @@ import '../../config/app_colors.dart';
 import '../../config/l10n/app_localizations.dart';
 import '../../config/theme_context.dart';
 import '../../core/utils/system_camera.dart';
+import '../product_list/product_provider.dart';
 import 'home_provider.dart';
 
 class MainSearchBar extends ConsumerStatefulWidget {
@@ -65,6 +66,7 @@ class _MainSearchBarState extends ConsumerState<MainSearchBar> {
       if (value.trim().isEmpty || _isSearching) return;
       setState(() => _isSearching = true);
       ref.read(homeProvider.notifier).setSearchQuery(value);
+      ref.read(productListProvider.notifier).updateProducts([]);
       await ref.read(homeProvider.notifier).submitTextSearch(value);
       if (!mounted) return;
       setState(() => _isSearching = false);
@@ -115,6 +117,7 @@ class _MainSearchBarState extends ConsumerState<MainSearchBar> {
                 FocusScope.of(context).unfocus();
                 final path = await SystemCamera.takePicture();
                 if (path != null && mounted) {
+                  ref.read(productListProvider.notifier).updateProducts([]);
                   ref.read(homeProvider.notifier).startRecognition(imageFile: File(path));
                   context.push('/results', extra: path);
                 }

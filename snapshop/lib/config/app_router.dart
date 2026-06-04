@@ -12,7 +12,6 @@ import '../core/mock_data.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    initialLocation: '/',
     observers: [routeObserver],
     routes: [
       GoRoute(
@@ -88,5 +87,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
     ],
+    // 未知路径重定向到首页，避免 crash
+    redirect: (context, state) {
+      final loc = state.uri.toString();
+      // 允许已知路径
+      if (state.matchedLocation == state.uri.path) return null;
+      // 未匹配的路径回首页
+      if (state.uri.path.isNotEmpty && state.matchedLocation == '/') return '/';
+      return null;
+    },
   );
 });

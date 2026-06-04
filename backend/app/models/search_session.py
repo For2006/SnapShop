@@ -1,9 +1,8 @@
 import enum
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import DateTime, Enum, ForeignKey, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -19,7 +18,7 @@ class SearchSession(Base):
     __tablename__ = "search_sessions"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        Uuid, primary_key=True, default=uuid.uuid4
     )
     device_id: Mapped[str] = mapped_column(String(100), index=True)
     image_url: Mapped[str | None] = mapped_column(String(2000), nullable=True)
@@ -28,7 +27,7 @@ class SearchSession(Base):
     status: Mapped[SessionStatus] = mapped_column(
         Enum(SessionStatus), default=SessionStatus.RECOGNIZING
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     recognition_result = relationship(
         "RecognitionResult", back_populates="session", uselist=False, lazy="selectin"

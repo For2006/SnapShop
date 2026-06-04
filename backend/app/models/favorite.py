@@ -18,4 +18,4 @@ class Favorite(Base):
     )
     product_id: Mapped[str] = mapped_column(String(200), index=True, nullable=False)
     product_snapshot: Mapped[dict] = mapped_column(JSON, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)

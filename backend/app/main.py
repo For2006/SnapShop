@@ -1,5 +1,6 @@
 import logging
 import time
+import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -8,6 +9,40 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 logger = logging.getLogger("snapshop")
+
+
+def setup_structured_logging():
+    logger.setLevel(logging.INFO)
+    
+    for handler in logger.handlers[:]:
+        logger.removeHandler(handler)
+    
+    handler = logging.StreamHandler()
+    
+    try:
+        from pythonjsonlogger import jsonlogger
+        formatter = jsonlogger.JsonFormatter(
+            "%(asctime)s %(levelname)s %(name)s %(message)s %(request_id)s %(method)s %(path)s %(process_time)s %(status_code)s %(exception)s"
+        )
+    except ImportError:
+        class SimpleFormatter(logging.Formatter):
+            def format(self, record):
+                record.__dict__.setdefault('request_id', '-')
+                record.__dict__.setdefault('method', '-')
+                record.__dict__.setdefault('path', '-')
+                record.__dict__.setdefault('process_time', '-')
+                record.__dict__.setdefault('status_code', '-')
+                record.__dict__.setdefault('exception', '-')
+                return super().format(record)
+        formatter = SimpleFormatter(
+            "%(asctime)s - %(levelname)s - %(name)s - %(message)s - req_id=%(request_id)s - %(method)s %(path)s - time=%(process_time)s - status=%(status_code)s - err=%(exception)s"
+        )
+    
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+
+
+setup_structured_logging()
 
 from app.api.v1 import (
     auth,
@@ -23,6 +58,7 @@ from app.api.v1 import (
 )
 from app.config import settings
 from app.core.database import init_db
+from app.core.cache import get_redis_client, close_redis_client
 from app.core.exceptions import AppException
 from app.schemas.common import ErrorResponse
 
@@ -60,18 +96,51 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 添加性能监控中间件
+
 @app.middleware("http")
-async def add_process_time_header(request: Request, call_next):
+async def structured_logging_middleware(request: Request, call_next):
+    request_id = str(uuid.uuid4())
     start_time = time.time()
-    response = await call_next(request)
-    process_time = time.time() - start_time
-    response.headers["X-Process-Time"] = str(process_time)
+    
+    request.state.request_id = request_id
+    
     try:
-        logger.info("%s %s - %.2fs", request.method, request.url.path, process_time)
-    except UnicodeEncodeError:
-        logger.info("[%s] %s - %.2fs", request.method, request.url.path, process_time)
-    return response
+        response = await call_next(request)
+        process_time = time.time() - start_time
+        
+        response.headers["X-Request-ID"] = request_id
+        response.headers["X-Process-Time"] = str(process_time)
+        
+        log_extra = {
+            "request_id": request_id,
+            "method": request.method,
+            "path": request.url.path,
+            "process_time": process_time,
+            "status_code": response.status_code,
+            "exception": None,
+        }
+        
+        logger.info(
+            "Request processed",
+            extra=log_extra
+        )
+        
+        return response
+    except Exception as e:
+        process_time = time.time() - start_time
+        log_extra = {
+            "request_id": request_id,
+            "method": request.method,
+            "path": request.url.path,
+            "process_time": process_time,
+            "status_code": 500,
+            "exception": str(e),
+        }
+        logger.exception(
+            "Request failed",
+            extra=log_extra
+        )
+        raise
 
 
 @app.middleware("http")
@@ -86,8 +155,17 @@ async def security_headers_middleware(request: Request, call_next):
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
+    request_id = getattr(request.state, "request_id", "unknown")
+    log_extra = {
+        "request_id": request_id,
+        "method": request.method,
+        "path": request.url.path,
+        "process_time": 0,
+        "status_code": 500,
+        "exception": str(exc),
+    }
     if settings.debug:
-        logger.exception("Internal error on %s %s", request.method, request.url.path)
+        logger.exception("Internal error", extra=log_extra)
     return JSONResponse(
         status_code=500,
         content={
@@ -117,6 +195,19 @@ async def health_check():
 
 @app.exception_handler(AppException)
 async def app_exception_handler(request: Request, exc: AppException):
+    request_id = getattr(request.state, "request_id", "unknown")
+    log_extra = {
+        "request_id": request_id,
+        "method": request.method,
+        "path": request.url.path,
+        "process_time": 0,
+        "status_code": exc.status_code,
+        "exception": str(exc),
+    }
+    logger.warning(
+        "Application exception",
+        extra=log_extra
+    )
     return JSONResponse(
         status_code=exc.status_code,
         content=ErrorResponse(
@@ -129,10 +220,20 @@ async def app_exception_handler(request: Request, exc: AppException):
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    if settings.debug:
-        detail = str(exc.errors())
-    else:
-        detail = None
+    request_id = getattr(request.state, "request_id", "unknown")
+    detail = str(exc.errors()) if settings.debug else None
+    log_extra = {
+        "request_id": request_id,
+        "method": request.method,
+        "path": request.url.path,
+        "process_time": 0,
+        "status_code": 400,
+        "exception": detail,
+    }
+    logger.warning(
+        "Validation error",
+        extra=log_extra
+    )
     return JSONResponse(
         status_code=400,
         content=ErrorResponse(

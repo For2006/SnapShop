@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
 import '../../config/app_colors.dart';
 import '../../config/theme_context.dart';
@@ -9,6 +8,7 @@ import '../../config/l10n/app_localizations.dart';
 import '../../core/mock_data.dart';
 import '../../core/network/api_client.dart';
 import '../../shared/widgets/platform_badge.dart';
+import '../../shared/widgets/optimized_cached_image.dart';
 import '../settings/settings_provider.dart';
 
 class ProductCard extends ConsumerStatefulWidget {
@@ -150,15 +150,11 @@ class _ProductCardState extends ConsumerState<ProductCard> {
               children: [
                 AspectRatio(
                   aspectRatio: 3 / 4,
-                  child: CachedNetworkImage(
+                  child: OptimizedCachedImage(
                     imageUrl: widget.product.imageUrl,
-                    fit: BoxFit.cover,
                     width: double.infinity,
-                    placeholder: (_, __) => Container(color: context.colors.cardBg),
-                    errorWidget: (_, __, ___) => Container(
-                      color: context.colors.cardBg,
-                      child: const Center(child: Icon(Icons.image_not_supported, color: Colors.grey)),
-                    ),
+                    memCacheWidth: 400,
+                    memCacheHeight: 533,
                   ),
                 ),
                 Positioned(

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../config/app_colors.dart';
 import '../../config/theme_context.dart';
 import '../../config/l10n/app_localizations.dart';
 import '../../core/mock_data.dart';
 import 'platform_badge.dart';
+import 'optimized_cached_image.dart';
 
 class BrowseHistoryItem {
   final String id;
@@ -145,20 +145,17 @@ class BrowseHistorySection extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Row(
             children: [
-              ClipRRect(
+              OptimizedCachedImage(
+                imageUrl: item.imageUrl,
+                width: 56,
+                height: 56,
                 borderRadius: BorderRadius.circular(8),
-                child: SizedBox(
-                  width: 56,
-                  height: 56,
-                  child: CachedNetworkImage(
-                    imageUrl: item.imageUrl,
-                    fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(color: context.colors.cardBg),
-                    errorWidget: (_, __, ___) => Container(
-                      color: context.colors.cardBg,
-                      child: Icon(Icons.image, color: context.colors.textSecondary),
-                    ),
-                  ),
+                memCacheWidth: 112,
+                memCacheHeight: 112,
+                placeholder: Container(color: context.colors.cardBg),
+                errorWidget: Container(
+                  color: context.colors.cardBg,
+                  child: Icon(Icons.image, color: context.colors.textSecondary),
                 ),
               ),
               const SizedBox(width: 12),

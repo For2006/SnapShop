@@ -23,5 +23,5 @@ class BrowseHistory(Base):
     device_id: Mapped[str | None] = mapped_column(String(100), index=True, nullable=True)
     product_id: Mapped[str] = mapped_column(String(200), index=True, nullable=False)
     product_snapshot: Mapped[dict] = mapped_column(JSON, nullable=False)
-    viewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    viewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
     view_date: Mapped[date] = mapped_column(Date, default=_utc_today, index=True)

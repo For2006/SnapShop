@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
 import '../../config/theme_context.dart';
 import '../../config/app_colors.dart';
 import '../../core/network/api_client.dart';
 import '../../shared/widgets/platform_badge.dart';
+import '../../shared/widgets/optimized_cached_image.dart';
 import '../settings/settings_provider.dart';
 
 class FavoritesTab extends ConsumerStatefulWidget {
@@ -139,11 +139,11 @@ class _FavoritesTabState extends ConsumerState<FavoritesTab> {
                 children: [
                   AspectRatio(
                     aspectRatio: 3 / 4,
-                    child: CachedNetworkImage(
+                    child: OptimizedCachedImage(
                       imageUrl: snapshot['image_url']?.toString() ?? '',
-                      fit: BoxFit.cover,
                       width: double.infinity,
-                      errorWidget: (_, __, ___) => Container(color: context.colors.cardBg),
+                      memCacheWidth: 400,
+                      memCacheHeight: 533,
                     ),
                   ),
                   Padding(

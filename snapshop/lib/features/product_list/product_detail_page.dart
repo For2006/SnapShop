@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:go_router/go_router.dart';
@@ -10,6 +9,7 @@ import '../../config/l10n/app_localizations.dart';
 import '../../core/mock_data.dart';
 import '../../core/network/api_client.dart';
 import '../../shared/widgets/platform_badge.dart';
+import '../../shared/widgets/optimized_cached_image.dart';
 import '../settings/settings_provider.dart';
 
 class ProductDetailPage extends ConsumerStatefulWidget {
@@ -208,11 +208,12 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  CachedNetworkImage(
+                  OptimizedCachedImage(
                     imageUrl: widget.product.imageUrl,
                     fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(color: context.colors.cardBg),
-                    errorWidget: (_, __, ___) => Container(
+                    memCacheWidth: 800,
+                    memCacheHeight: 800,
+                    errorWidget: Container(
                       color: context.colors.cardBg,
                       child: const Center(child: Icon(Icons.image_not_supported, color: Colors.grey, size: 64)),
                     ),

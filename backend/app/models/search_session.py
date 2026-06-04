@@ -22,12 +22,12 @@ class SearchSession(Base):
     )
     device_id: Mapped[str] = mapped_column(String(100), index=True)
     image_url: Mapped[str | None] = mapped_column(String(2000), nullable=True)
-    search_type: Mapped[str] = mapped_column(String(20), default="image")
+    search_type: Mapped[str] = mapped_column(String(20), default="image", index=True)
     search_query: Mapped[str | None] = mapped_column(String(500), nullable=True)
     status: Mapped[SessionStatus] = mapped_column(
-        Enum(SessionStatus), default=SessionStatus.RECOGNIZING
+        Enum(SessionStatus), default=SessionStatus.RECOGNIZING, index=True
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
 
     recognition_result = relationship(
         "RecognitionResult", back_populates="session", uselist=False, lazy="selectin"

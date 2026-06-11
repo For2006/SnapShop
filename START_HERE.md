@@ -1,12 +1,23 @@
-# SnapShop — 比赛运行指南
+# SnapShop — 项目启动指南
 
 > **SnapShop**：AI 拍照识物与智能比价购物助手 — 拍照即搜，聚合多平台比价，自然语言筛选，一站式「识别→检索→决策」购物体验。
 
 ---
 
-## 1. 环境要求
+本文档提供两种部署方式：
 
-### 1.1 服务器端（部署后端）
+| 部署方式 | 适用场景 | 操作系统 |
+|----------|----------|----------|
+| **[A. 云服务器部署](#a-云服务器部署)** | 生产环境 / 评委远程访问 / 对外服务 | Linux (Ubuntu/Debian/CentOS) |
+| **[B. 本地开发环境部署](#b-本地开发环境部署)** | 开发调试 / 本地演示 / 学习研究 | Windows (本文档) / macOS |
+
+---
+
+## A. 云服务器部署
+
+### A.1 环境要求
+
+#### 硬件
 
 | 资源 | 最低配置 | 推荐配置 |
 |------|---------|---------|
@@ -16,15 +27,17 @@
 | 带宽 | 5 Mbps | 10 Mbps 及以上 |
 | 操作系统 | Ubuntu 22.04 / Debian 12 / CentOS 7.9 | Ubuntu 22.04 LTS |
 
+#### 软件
+
 | 软件 | 版本 | 用途 |
 |------|------|------|
 | Docker | 24.0+ | 容器运行时 |
 | Docker Compose Plugin | 2.20+ | 多容器编排 |
 | Git | 2.40+ | 代码拉取 |
 
-> 如果使用 GHCR 预构建镜像，服务器只需 Docker + Docker Compose + Git，无需 Python/Node.js 等运行时。
+> 使用 GHCR 预构建镜像时，服务器只需 Docker + Docker Compose + Git，无需 Python/Node.js 等运行时。
 
-### 1.2 网络端口
+#### 网络端口
 
 | 端口 | 方向 | 用途 |
 |------|:----:|------|
@@ -34,120 +47,672 @@
 
 > PostgreSQL (5432)、Redis (6379)、MinIO (9000/9001) 仅 Docker 内网通信，**无需对外开放**。云服务器安全组需开放 22 和 80 端口。
 
-### 1.3 本地开发环境（运行 Flutter 前端）
+---
 
-| 组件 | 版本要求 | 说明 |
-|------|---------|------|
-| Python | 3.12+ | 后端 FastAPI 运行环境 |
-| Flutter SDK | 3.2+ (Dart >=3.2.0) | 前端跨平台框架 |
-| Docker & Docker Compose | 最新稳定版 | 编排 PostgreSQL、Redis、MinIO |
-| PostgreSQL | 16 (Docker 提供) | 主数据库 |
-| Redis | 7 (Docker 提供) | 缓存与限流 |
+### A.2 一键部署（推荐）
 
-**可选**：Android Studio 或 Xcode（用于编译运行 Flutter 移动端应用）。
+在全新云服务器上只需一条命令，脚本自动完成：安装依赖 → 克隆项目 → 生成密码 → 拉取镜像 → 启动全部 6 个容器 → 数据库迁移。
+
+```bash
+# SSH 登录服务器后执行
+curl -fsSL https://raw.githubusercontent.com/For2006/SnapShop/main/bootstrap.sh | sudo bash -s -- --non-interactive
+```
+
+> 自动生成的密码会在屏幕上显示一次，**请立即记录下来**。若需自定义配置，使用下面的交互模式。
+
+**交互模式**（逐个询问配置项，回车使用自动生成值）：
+
+```bash
+# 先克隆项目
+git clone https://github.com/For2006/SnapShop.git /opt/snapshop
+cd /opt/snapshop
+
+# 交互式部署
+sudo bash bootstrap.sh
+```
+
+**本地构建模式**（不从 GHCR 拉取，在服务器上本地编译镜像）：
+
+```bash
+cd /opt/snapshop
+sudo bash bootstrap.sh --build
+```
+
+**命令行选项**：
+
+| 选项 | 说明 |
+|------|------|
+| `--ghcr-user=NAME` | GitHub 用户名（默认 `for2006`） |
+| `--ghcr-token=TOKEN` | GitHub Personal Access Token，私有镜像需要 |
+| `--build` | 在服务器上本地构建镜像，不从 GHCR 拉取 |
+| `--non-interactive` | 非交互模式，自动生成所有密码和密钥 |
+| `--project-dir=PATH` | 自定义项目安装目录（默认 `/opt/snapshop`） |
 
 ---
 
-## 2. 快速启动（本地开发）
+### A.3 手动部署
 
-### 步骤 1：启动后端服务
+如果不使用一键脚本，也可以逐步手动部署。
+
+#### 步骤 1：初始化服务器环境
 
 ```bash
-# 1. 进入后端目录
-cd backend
+# SSH 登录服务器
+ssh root@你的服务器IP
 
-# 2. 复制环境变量模板（模板已预填比赛 AI 密钥，可直接使用）
-cp .env.example .env
+# 安装 Docker
+curl -fsSL https://get.docker.com | bash
+systemctl enable docker && systemctl start docker
 
-# 3. （可选）如需修改配置，编辑 .env
-#    AI 密钥已预填，JWT_SECRET 开发模式会自动生成
+# 安装 Docker Compose 插件 + Git
+apt-get update && apt-get install -y docker-compose-plugin git
+```
 
-# 4. 启动所有 Docker 服务（API + PostgreSQL + Redis + MinIO）
-docker compose up -d
+#### 步骤 2：克隆项目并配置
 
-# 5. 创建 MinIO 存储桶（首次启动必须执行）
-#    等待 MinIO 就绪后，访问 http://localhost:9001 用 minioadmin/minioadmin123 登录
-#    手动创建名为 snapshop-images 的 bucket
+```bash
+git clone https://github.com/For2006/SnapShop.git /opt/snapshop
+cd /opt/snapshop/backend
 
-# 6. 等待约 10~30 秒，验证后端是否就绪
-curl http://localhost:8000/health
+# 复制生产环境变量模板
+cp .env.production .env
+
+# 编辑配置
+nano .env
+```
+
+需要修改的必填项：
+
+- `POSTGRES_PASSWORD`、`MINIO_ROOT_PASSWORD`、`MINIO_SECRET_KEY`：设置强密码
+- `JWT_SECRET`：运行 `python3 -c "import secrets; print(secrets.token_urlsafe(32))"` 生成
+- AI 配置（ARK_*）已预填比赛专用值，无密钥可开启 `AI_MOCK_MODE=true`
+
+#### 步骤 3：启动服务
+
+```bash
+cd /opt/snapshop/backend
+
+# 拉取 GHCR 镜像并启动
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
+
+# 运行数据库迁移
+docker compose -f docker-compose.prod.yml exec backend alembic upgrade head
+```
+
+#### 步骤 4：验证
+
+```bash
+curl http://localhost/health
 # 预期返回：{"status":"healthy"}
 ```
 
-> 如果 `docker compose` 命令不可用，请尝试 `docker-compose up -d`（旧版语法）。
-
-### 步骤 2：启动前端应用
-
-```bash
-# 1. 进入前端目录
-cd snapshop
-
-# 2. 安装依赖
-flutter pub get
-
-# 3. 运行（确保已有 Android 模拟器 / iOS 模拟器 / 真机连接）
-flutter run
-```
-
-前端默认连接后端地址为 `http://localhost:8000`（Android 模拟器使用 `10.0.2.2:8000`，Flutter 代码中已自动适配）。
+浏览器访问 `http://服务器IP/docs` 可查看 Swagger API 文档。
 
 ---
 
-## 3. 后端 `.env` 配置说明
+### A.4 部署架构
 
-编辑 `backend/.env` 文件，按下方表格配置：
+```
+互联网 (80端口)
+    │
+    ▼
+┌──────────┐
+│  Nginx   │  反向代理
+└────┬─────┘
+     │
+     ├── /api/*   →  backend:8000  (FastAPI)
+     ├── /images/ →  minio:9000    (图片直连)
+     ├── /docs    →  backend:8000  (Swagger UI)
+     └── /health  →  backend:8000  (健康检查)
+           │
+     ┌─────┴──────┬──────────┐
+     ▼            ▼          ▼
+  backend     postgres    redis
+  (FastAPI)   (端口5432)   (端口6379)
+     │
+     ▼
+  minio:9000
+  (对象存储)
+```
 
-### 3.1 比赛专用 AI 资源（必填）
+#### 端口一览
 
-这些是大赛组委会提供的火山方舟 AI 推理资源，用于视觉识别（VLM）和智能建议生成（LLM）：
+| 端口 | 服务 | 对外 | 说明 |
+|------|------|:--:|------|
+| 80 | Nginx | ✅ | HTTP 入口，反向代理到后端 |
+| 8000 | FastAPI | ❌ | 仅 Docker 内网 |
+| 5432 | PostgreSQL | ❌ | 仅 Docker 内网 |
+| 6379 | Redis | ❌ | 仅 Docker 内网 |
+| 9000 | MinIO | ✅ | 图片上传/访问 |
 
-| 配置项 | 值 | 说明 |
-|--------|-----|------|
-| `ARK_API_KEY` | `你的火山方舟 API Key` | 火山方舟 API Key（比赛专用资源） |
-| `ARK_VLM_ENDPOINT_ID` | `ep-xxxxxx` | VLM 端点（Doubao-Seed-2.0-lite） |
-| `ARK_LLM_ENDPOINT_ID` | `ep-xxxxxx` | LLM 端点（Doubao-Seed-2.0-lite） |
-| `AI_MOCK_MODE` | `false` | 关闭 Mock 模式，使用真实 AI 推理 |
+---
 
-### 3.2 数据库与缓存（默认即可）
+### A.5 后续更新
 
-使用 `docker compose up -d` 启动的本地 Docker 服务，以下值为默认配置：
-
-| 配置项 | 值 | 说明 |
-|--------|-----|------|
-| `POSTGRES_USER` | `snapshop` | 数据库用户名 |
-| `POSTGRES_PASSWORD` | `自行设置` | 数据库密码，需与下方 DATABASE_URL 保持一致 |
-| `POSTGRES_DB` | `snapshop` | 数据库名称 |
-| `DATABASE_URL` | `postgresql+asyncpg://snapshop:你的密码@localhost:5432/snapshop` | 本地连接 |
-| `REDIS_URL` | `redis://localhost:6379/0` | 本地 Redis |
-
-### 3.3 JWT 密钥（必填）
-
-生产环境必须设置强随机 JWT 密钥，否则应用将拒绝启动：
+代码推送到 main 分支后，GitHub Actions 会自动构建新镜像推送到 GHCR。在服务器上执行：
 
 ```bash
-# 在终端执行以下命令生成随机密钥，然后填入 .env 的 JWT_SECRET 字段：
+cd /opt/snapshop && bash deploy/update.sh
+```
+
+该脚本会自动拉取最新镜像、仅重建 backend 容器（不中断其他服务）、运行新迁移。
+
+---
+
+### A.6 前端 APK 构建与分发
+
+部署后端后，构建前端 APK 安装包供用户下载安装。
+
+#### 在服务器上构建 APK
+
+**1. 安装 Flutter SDK**
+
+```bash
+cd /opt
+wget https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.22.0-stable.tar.xz
+tar xf flutter_linux_3.22.0-stable.tar.xz
+echo 'export PATH="$PATH:/opt/flutter/bin"' >> ~/.bashrc
+source ~/.bashrc
+flutter doctor
+```
+
+**2. 安装 Android SDK 和 JDK**
+
+```bash
+apt-get install -y openjdk-17-jdk-headless
+
+mkdir -p /opt/android-sdk/cmdline-tools
+cd /opt/android-sdk/cmdline-tools
+wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+unzip commandlinetools-linux-11076708_latest.zip
+mv cmdline-tools latest
+
+export ANDROID_HOME=/opt/android-sdk
+export PATH="$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools"
+
+yes | sdkmanager --licenses
+sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+```
+
+**3. 配置后端地址**
+
+编辑 `snapshop/lib/core/network/api_client.dart`，将生产环境地址改为服务器 IP：
+
+```dart
+static const String _productionBaseUrl = 'http://你的服务器IP';
+```
+
+**4. 构建 APK**
+
+```bash
+cd /opt/snapshop/snapshop
+flutter pub get
+flutter build apk --release
+# APK 输出: build/app/outputs/flutter-apk/app-release.apk
+```
+
+#### 在本地 Windows 开发机构建
+
+> **⚠️ 重要**：构建 Release APK 前必须配置正确的后端地址。编辑 `snapshop/lib/core/network/api_client.dart` 第 105 行：
+
+```dart
+// 方式 A：使用 ADB 反向代理（手机 USB 连接电脑，电脑运行后端）
+static const _productionBaseUrl = 'http://localhost:8000/api/v1';
+
+// 方式 B：连接云服务器（替换为你的服务器 IP）
+static const _productionBaseUrl = 'http://你的服务器IP/api/v1';
+```
+
+| 方式 | 场景 | 额外操作 |
+|------|------|----------|
+| `localhost` | 手机 USB 连电脑 | 需执行 `adb reverse tcp:8000 tcp:8000` |
+| 服务器 IP | 后端已部署到云服务器 | 无需额外操作 |
+
+```powershell
+cd snapshop
+
+# 构建 Release APK
+flutter build apk --release
+# 输出: build\app\outputs\flutter-apk\app-release.apk
+```
+
+#### 分发 APK
+
+| 方式 | 操作 |
+|------|------|
+| Nginx 静态下载 | 将 APK 放入 Nginx 静态目录，访问 `http://服务器IP/app-release.apk` |
+| ADB 安装 | USB 连接手机后 `adb install app-release.apk` |
+| 二维码分发 | 生成 APK 下载链接二维码，手机扫码下载安装 |
+
+> Android 设备需开启「设置 → 安全 → 允许安装未知来源应用」。
+
+---
+
+### A.7 部署命令速查
+
+```bash
+# 一键部署
+curl -fsSL https://raw.githubusercontent.com/For2006/SnapShop/main/bootstrap.sh | sudo bash -s -- --non-interactive
+
+# 验证后端
+curl http://服务器IP/health
+
+# 更新后端
+cd /opt/snapshop && bash deploy/update.sh
+
+# 构建 APK (服务器)
+cd /opt/snapshop/snapshop && flutter pub get && flutter build apk --release
+
+# 构建 APK (本地 Windows)
+cd snapshop && flutter build apk --release
+
+# ADB 安装 APK
+adb install build/app/outputs/flutter-apk/app-release.apk
+
+# 查看容器状态
+docker compose -f /opt/snapshop/backend/docker-compose.prod.yml ps
+
+# 查看后端日志
+docker compose -f /opt/snapshop/backend/docker-compose.prod.yml logs -f backend
+```
+
+---
+
+## B. 本地开发环境部署
+
+> 以下步骤以 **Windows** 为例，macOS 用户可参照对应命令（差异处已标注）。
+
+### B.0 一键部署（推荐）
+
+项目根目录提供了 `bootstrap.ps1` 脚本，整合了环境检查、克隆项目、自动配置 `.env`、启动 Docker、创建存储桶、数据库迁移、健康验证等全部步骤。
+
+**前置条件**：仅需安装 Docker Desktop 和 Git（Python 为可选，无 Python 时自动用 PowerShell 生成密钥）。
+
+```powershell
+# 方式一：在当前目录一键部署
+cd "f:\AI Shopping"
+.\bootstrap.ps1
+
+# 方式二：从 GitHub 克隆并部署（项目不存在时自动克隆）
+.\bootstrap.ps1 -ProjectDir "f:\AI Shopping"
+
+# 方式三：仅构建 Docker 镜像，不启动服务
+.\bootstrap.ps1 -BuildOnly
+
+# 方式四：跳过克隆，使用已有项目
+.\bootstrap.ps1 -SkipClone
+```
+
+**脚本自动完成的事情**：
+
+| 步骤 | 说明 |
+|------|------|
+| 检查前提条件 | Git、Docker Desktop 是否安装并运行 |
+| 准备代码 | 自动 `git clone`（如果不存在）或 `git pull` 拉取最新 |
+| 配置 `.env` | 自动生成随机密码和 JWT 密钥，写入 `.env` |
+| 镜像加速检测 | 提示是否已配置 Docker 镜像加速 |
+| 构建 & 启动 | `docker compose build` + `docker compose up -d`，等待所有容器就绪 |
+| MinIO 存储桶 | `docker-compose.yml` 中的 `minio-init` 服务会自动创建 `snapshop-images` 桶 |
+| 数据库迁移 | 自动执行 `alembic upgrade head` |
+| 健康检查 | 验证 `http://localhost:8000/health` 返回 healthy |
+
+> 自动生成的密码和密钥会在屏幕上显示一次，**请记录下来**。`.env` 已存在时脚本不会覆盖。
+
+**命令行选项**：
+
+| 选项 | 说明 |
+|------|------|
+| `-ProjectDir PATH` | 项目目录（默认 `f:\AI Shopping`） |
+| `-SkipClone` | 跳过克隆，使用已有项目代码 |
+| `-BuildOnly` | 仅构建 Docker 镜像，不启动服务 |
+
+如果一键脚本无法使用（例如 PowerShell 执行策略限制），请参考下方 **B.1~B.9** 的手动部署步骤。
+
+---
+
+### B.1 前置环境要求
+
+开始前请确认以下工具已安装并可正常使用：
+
+| 工具 | 检查命令 | 最低版本 | 下载地址 |
+|------|----------|----------|----------|
+| Git | `git --version` | 2.40+ | https://git-scm.com/download/win |
+| Docker Desktop | `docker ps` | 24.0+ | https://www.docker.com/products/docker-desktop/ |
+| Python | `python --version` | 3.12+ | https://www.python.org/downloads/ |
+| Flutter SDK | `flutter doctor` | 3.2+ | https://docs.flutter.dev/get-started/install/windows |
+
+**安装注意事项**：
+
+- **Docker Desktop**：安装后确保任务栏托盘图标为运行状态；首次启动可能需要启用 WSL2（按提示操作即可）
+- **Flutter**：解压到不含空格的路径（如 `C:\flutter`），并将 `C:\flutter\bin` 加入系统 PATH；运行 `flutter doctor` 检查缺失项
+- **Python**：安装时勾选 "Add Python to PATH"
+
+---
+
+### B.2 克隆项目
+
+```powershell
+# 在任意工作目录执行，例如 C:\Projects
+cd \
+git clone https://github.com/For2006/SnapShop.git "f:\AI Shopping"
+cd "f:\AI Shopping"
+```
+
+克隆后项目结构：
+
+```
+f:\AI Shopping\
+├── backend/          # Python FastAPI 后端
+├── snapshop/         # Flutter 前端
+├── deploy/           # 部署脚本 + Nginx 配置
+├── docs/             # 文档
+├── bootstrap.sh      # 一键部署脚本（Linux 服务器用）
+├── START_HERE.md     # 本文档
+└── README.md
+```
+
+---
+
+### B.3 配置 Docker 镜像加速（可选）
+
+如果拉取 Docker 镜像速度很慢，可以在 Docker Desktop 中配置国内镜像加速：
+
+1. 打开 Docker Desktop → **Settings（设置）** → **Docker Engine**
+2. 在 JSON 配置中添加 `registry-mirrors`：
+
+```json
+{
+  "registry-mirrors": [
+    "https://docker.m.daocloud.io",
+    "https://mirror.ccs.tencentyun.com"
+  ]
+}
+```
+
+3. 点击 **Apply & Restart**
+
+---
+
+### B.4 配置后端 `.env`
+
+```powershell
+cd "f:\AI Shopping\backend"
+
+# 复制环境变量模板
+copy .env.example .env
+
+# 用文本编辑器打开 .env（任选其一）
+notepad .env
+# 或 code .env（VS Code）
+```
+
+按以下说明逐项修改 `.env` 文件：
+
+#### B.4.1 数据库连接
+
+将默认的 SQLite 注释掉，启用 PostgreSQL：
+
+```env
+# 注释掉这行
+# DATABASE_URL=sqlite+aiosqlite:///./snapshop.db
+
+# 启用 PostgreSQL（密码与下方 POSTGRES_PASSWORD 保持一致）
+DATABASE_URL=postgresql+asyncpg://snapshop:你的密码@localhost:5432/snapshop
+```
+
+同时设置密码：
+
+```env
+POSTGRES_USER=snapshop
+POSTGRES_PASSWORD=你的密码（如 snapshop123）
+POSTGRES_DB=snapshop
+```
+
+#### B.4.2 MinIO 对象存储
+
+```env
+MINIO_ENDPOINT=localhost:9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=你的MinIO密码（如 minioadmin123）
+MINIO_BUCKET=snapshop-images
+MINIO_ROOT_USER=minioadmin
+MINIO_ROOT_PASSWORD=你的MinIO密码（同上）
+```
+
+#### B.4.3 JWT 密钥
+
+在 PowerShell 中生成随机密钥：
+
+```powershell
 python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
 将生成的字符串填入：
-```
-JWT_SECRET=<生成的随机密钥>
+
+```env
+JWT_SECRET=粘贴生成的32位随机字符串
 ```
 
-> 开发模式下（`DEBUG=true`），若未设置 `JWT_SECRET`，应用启动时会自动生成一个临时密钥，但每次重启都会变化，导致登录 token 失效。
+#### B.4.4 AI 配置
 
-### 3.4 MinIO 对象存储（Docker 提供，默认即可）
+有火山方舟 API 密钥时填入真实值；没有时开启 Mock 模式也能跑通全流程：
+
+```env
+# 有 AI 密钥
+ARK_API_KEY=你的API_Key
+ARK_VLM_ENDPOINT_ID=ep-xxxxxx
+ARK_LLM_ENDPOINT_ID=ep-xxxxxx
+AI_MOCK_MODE=false
+
+# 没有密钥 → 开启 Mock 模式
+AI_MOCK_MODE=true
+ARK_API_KEY=
+ARK_VLM_ENDPOINT_ID=
+ARK_LLM_ENDPOINT_ID=
+```
+
+#### B.4.5 配置完成检查清单
+
+`.env` 文件修改完毕后，确认以下字段已正确填写：
+
+- [ ] `DATABASE_URL` 指向 `postgresql+asyncpg://snapshop:你的密码@localhost:5432/snapshop`
+- [ ] `POSTGRES_PASSWORD` 已设置
+- [ ] `MINIO_ROOT_PASSWORD` 和 `MINIO_SECRET_KEY` 已设置（保持一致）
+- [ ] `JWT_SECRET` 已填入随机生成的 32 位字符串
+- [ ] `DEBUG=true`（开发模式）
+
+---
+
+### B.5 启动 Docker 服务
+
+```powershell
+cd "f:\AI Shopping\backend"
+
+# 启动所有容器（首次启动会构建 backend 镜像并拉取依赖镜像）
+docker compose up -d
+```
+
+> 首次启动约需 3-10 分钟（取决于网络速度），后续启动通常不到 30 秒。
+
+**等待所有容器就绪后，检查状态**：
+
+```powershell
+docker compose ps
+```
+
+预期输出：4 个容器全部显示 `healthy` 或 `running`：
+
+| 容器名 | 状态 | 端口 |
+|--------|------|------|
+| backend-backend-1 | running | 8000 |
+| backend-db-1 | healthy | 5432 |
+| backend-redis-1 | healthy | 6379 |
+| backend-minio-1 | running | 9000, 9001 |
+
+---
+
+### B.6 MinIO 存储桶配置
+
+`docker compose up -d` 启动时会自动执行 `minio-init` 服务，创建 `snapshop-images` 存储桶。可以通过以下方式验证：
+
+```powershell
+# 查看 minio-init 日志，确认桶已创建
+docker compose logs minio-init | Select-String "snapshop-images ready"
+```
+
+如果 `minio-init` 未自动创建，可手动操作：
+
+1. 浏览器访问 **[http://localhost:9001](http://localhost:9001)**
+2. 输入用户名和密码（你在 `.env` 中设置的 `MINIO_ROOT_USER` 和 `MINIO_ROOT_PASSWORD`）
+3. 点击左侧 **Buckets** → **Create Bucket**
+4. Bucket Name 输入 `snapshop-images` → 点击 **Create Bucket**
+
+> 该步骤**首次启动只需执行一次**，后续重启 Docker 不需要重复操作。
+
+---
+
+### B.7 数据库迁移 & 验证
+
+```powershell
+cd "f:\AI Shopping\backend"
+
+# 运行数据库迁移（创建表结构）
+docker compose exec backend alembic upgrade head
+
+# 预期输出: INFO  [alembic.runtime.migration] Running upgrade ... -> 2025_01_01_0000, initial migration
+```
+
+**验证后端是否就绪**：
+
+```powershell
+curl http://localhost:8000/health
+# 预期返回：{"status":"healthy"}
+```
+
+也可以浏览器打开 **[http://localhost:8000/docs](http://localhost:8000/docs)** 查看 Swagger API 交互文档。
+
+---
+
+### B.8 启动 Flutter 前端
+
+```powershell
+cd "f:\AI Shopping\snapshop"
+
+# 安装依赖（首次执行）
+flutter pub get
+
+# 启动应用
+flutter run
+```
+
+> 前端代码已自动适配连接地址：
+> - **Windows 桌面 / iOS 模拟器** → `http://localhost:8000`
+> - **Android 模拟器** → `http://10.0.2.2:8000`
+>
+> 无需手动修改任何配置。
+
+**选择运行目标**：
+
+- `flutter run` 会自动检测可用设备并列出，输入编号选择
+- 指定设备：`flutter run -d windows`（桌面）或 `flutter run -d <设备ID>`
+
+---
+
+### B.9 连接安卓真机调试
+
+如果想在安卓手机上调试（后端在电脑上运行），需要让手机能访问电脑的 `localhost`。
+
+#### 方法一：ADB 反向代理（推荐，手机 USB 连电脑）
+
+```powershell
+# 1. 手机开启「开发者选项」→ 开启「USB 调试」
+# 2. USB 连接电脑
+
+# 3. 验证 ADB 可用
+adb devices
+
+# 4. 建立反向代理（将手机 8000 端口转发到电脑 8000）
+adb reverse tcp:8000 tcp:8000
+
+# 5. 启动 Flutter
+cd "f:\AI Shopping\snapshop"
+flutter run
+```
+
+#### 方法二：局域网 IP 直连
+
+如果手机和电脑在同一 Wi-Fi 下：
+
+```powershell
+# 查看电脑局域网 IP
+ipconfig
+
+# 找到「无线局域网适配器 WLAN」或「以太网适配器」下的 IPv4 地址
+# 例如: 192.168.1.100
+```
+
+然后编辑 `snapshop\lib\core\network\api_client.dart`，将 localhost 改为该 IP：
+
+```dart
+static const String _baseUrl = 'http://192.168.1.100:8000';
+```
+
+> 这种方式需要确保 Windows 防火墙允许 8000 端口入站连接。
+
+---
+
+## C. 后端 `.env` 配置详解
+
+以下为 `.env` 所有字段的完整说明，按用途分类。
+
+### C.1 比赛专用 AI 资源
+
+大赛组委会提供的火山方舟 AI 推理资源，用于视觉识别（VLM）和智能建议生成（LLM）：
 
 | 配置项 | 值 | 说明 |
 |--------|-----|------|
-| `MINIO_ROOT_USER` | `minioadmin`（自定义） | MinIO 管理员用户名 |
-| `MINIO_ROOT_PASSWORD` | `minioadmin123`（自定义） | MinIO 管理员密码 |
-| `MINIO_ENDPOINT` | `localhost:9000` | MinIO S3 API 地址 |
-| `MINIO_ACCESS_KEY` | 与 MINIO_ROOT_USER 相同 | S3 Access Key |
-| `MINIO_SECRET_KEY` | 与 MINIO_ROOT_PASSWORD 相同 | S3 Secret Key |
-| `MINIO_BUCKET` | `snapshop-images` | 图片存储桶名称 |
+| `ARK_API_KEY` | `你的火山方舟 API Key` | 火山方舟 API Key |
+| `ARK_VLM_ENDPOINT_ID` | `ep-xxxxxx` | VLM 视觉模型端点 |
+| `ARK_LLM_ENDPOINT_ID` | `ep-xxxxxx` | LLM 语言模型端点 |
+| `ARK_BASE_URL` | `https://ark.cn-beijing.volces.com/api/v3` | API 基础地址 |
+| `AI_MOCK_MODE` | `false`（真实 AI）/ `true`（Mock 降级） | Mock 模式不调用真实 AI |
 
-### 3.5 电商平台 API 密钥（可选）
+### C.2 数据库与缓存
+
+| 配置项 | 本地开发值 | 说明 |
+|--------|-----------|------|
+| `POSTGRES_USER` | `snapshop` | 数据库用户名 |
+| `POSTGRES_PASSWORD` | 自行设置 | 数据库密码 |
+| `POSTGRES_DB` | `snapshop` | 数据库名称 |
+| `DATABASE_URL` | `postgresql+asyncpg://snapshop:密码@localhost:5432/snapshop` | 本地连接 |
+| `REDIS_URL` | `redis://localhost:6379/0` | 本地 Redis |
+
+### C.3 JWT 密钥
+
+```powershell
+# 生成随机密钥
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+```env
+JWT_SECRET=生成的随机密钥
+```
+
+> 开发模式下（`DEBUG=true`）若未设置 `JWT_SECRET`，应用启动时会自动生成临时密钥，但每次重启都会变化，导致登录 token 失效。
+
+### C.4 MinIO 对象存储
+
+| 配置项 | 本地值 | 说明 |
+|--------|--------|------|
+| `MINIO_ENDPOINT` | `localhost:9000` | MinIO S3 API 地址 |
+| `MINIO_ACCESS_KEY` | `minioadmin` | S3 Access Key |
+| `MINIO_SECRET_KEY` | 自行设置 | S3 Secret Key |
+| `MINIO_BUCKET` | `snapshop-images` | 图片存储桶名称 |
+| `MINIO_ROOT_USER` | `minioadmin` | MinIO 管理员用户名 |
+| `MINIO_ROOT_PASSWORD` | 自行设置（与 SECRET_KEY 相同） | MinIO 管理员密码 |
+
+### C.5 电商平台 API 密钥（可选）
 
 可用于接入京东联盟、拼多多开放平台的真实商品数据。留空则自动使用内置 Mock 数据。
 
@@ -158,7 +723,7 @@ JWT_SECRET=<生成的随机密钥>
 
 ---
 
-## 4. 最小功能验证（6 条路径）
+## D. 最小功能验证（6 条核心路径）
 
 以下测试用例用于快速验证核心链路是否正常工作。所有测试均在 **Flutter 应用运行后** 通过 App 界面完成。
 
@@ -216,7 +781,7 @@ JWT_SECRET=<生成的随机密钥>
 
 ---
 
-## 5. API 文档入口
+## E. API 文档入口
 
 后端启动后，访问以下地址查看完整的交互式 API 文档：
 
@@ -238,46 +803,37 @@ JWT_SECRET=<生成的随机密钥>
 
 ---
 
-## 6. 常见问题排查
+## F. 常见问题排查
 
-### 端口冲突
+### Docker 相关
 
-**现象**：`docker compose up -d` 报端口占用错误。
-
-```bash
-# 检查哪些端口被占用（8000, 5432, 6379, 9000, 9001）
-netstat -ano | findstr "8000 5432 6379 9000 9001"
-
-# 如果需要，先停止冲突的本地 PostgreSQL/Redis 服务
-# 或修改 docker-compose.yml 中的端口映射
-```
-
-### Docker 未启动
-
-**现象**：`docker compose up -d` 报 `docker: command not found` 或连接错误。
+**Docker 未启动**
 
 ```powershell
-# 确保 Docker Desktop 已启动（Windows 托盘图标应为运行状态）
-# 验证 Docker 是否正常工作：
+# 现象：docker compose up -d 报连接错误
+# 解决：确保 Docker Desktop 已启动（Windows 托盘图标应为运行状态）
 docker ps
 ```
 
-### 图片上传失败
+**端口冲突**
 
-**现象**：拍照或选图后无响应或报错。
+```powershell
+# 检查哪些端口被占用
+netstat -ano | findstr "8000 5432 6379 9000 9001"
 
-| 可能原因 | 解决方法 |
-|----------|----------|
-| MinIO 未正确启动 | `docker compose logs minio` 查看日志 |
-| MinIO bucket 未创建 | 访问 http://localhost:9001 手动创建 `snapshop-images` bucket |
-| 图片过大 | 前端自动压缩至 ≤2MB，确保 `image_picker` 和 `flutter_image_compress` 插件正常 |
-| AI Mock 模式 | 检查 `.env` 中 `AI_MOCK_MODE=false` 且 AI 密钥正确 |
+# 如果需要，停止冲突的本地服务
+# 或修改 docker-compose.yml 中的端口映射
+```
 
-### 数据库连接失败
+**镜像拉取速度慢**
 
-**现象**：后端日志报 `connection refused`。
+在 Docker Desktop `Settings → Docker Engine` 中添加镜像加速（见 [B.3 节](#b3-配置-docker-镜像加速可选)）。
 
-```bash
+### 后端相关
+
+**数据库连接失败**
+
+```powershell
 # 检查 PostgreSQL 是否就绪
 docker compose ps db
 # 状态应为 "healthy"
@@ -286,29 +842,41 @@ docker compose ps db
 docker compose logs db
 ```
 
-### Flutter 编译错误
+**环境变量未生效**
 
-```bash
-# 清理并重新获取依赖
-cd snapshop
+修改 `.env` 后需要重启后端服务：
+
+```powershell
+cd "f:\AI Shopping\backend"
+docker compose down
+docker compose up -d
+```
+
+### 前端相关
+
+**Flutter 编译错误**
+
+```powershell
+cd "f:\AI Shopping\snapshop"
 flutter clean
 flutter pub get
 flutter run
 ```
 
-### 环境变量未生效
+### 图片上传相关
 
-修改 `.env` 后需要重启后端服务：
+**图片上传失败**
 
-```bash
-cd backend
-docker compose down
-docker compose up -d
-```
+| 可能原因 | 解决方法 |
+|----------|----------|
+| MinIO 未正确启动 | `docker compose logs minio` 查看日志 |
+| MinIO bucket 未创建 | 访问 http://localhost:9001 手动创建 `snapshop-images` bucket |
+| 图片过大 | 前端自动压缩至 ≤2MB，确保 `image_picker` 和 `flutter_image_compress` 插件正常 |
+| AI Mock 模式 | 检查 `.env` 中 `AI_MOCK_MODE=true` 或用 Mock 模式测试 |
 
 ---
 
-## 7. 文档索引
+## G. 文档索引
 
 - [产品需求文档 (PRD)](docs/PRD.md)
 - [架构设计文档](docs/architecture.md)
@@ -318,355 +886,3 @@ docker compose up -d
 - [AI 使用总结](docs/ai-usage-summary.md)
 - [标准测试用例](docs/test-cases.md)
 - [项目分工说明](docs/team-division.md)
-
----
-
-## 8. 云服务器一键部署
-
-### 8.1 前置条件
-
-| 项目 | 要求 |
-|------|------|
-| 云服务器 | 2核4GB 及以上（推荐 Ubuntu 22.04 / CentOS 7.9） |
-| 安全组规则 | 开放端口: 22 (SSH), 80 (HTTP) |
-| 域名 | 可选，无域名时直接使用服务器公网 IP |
-
-### 8.2 一键部署（推荐）
-
-项目根目录的 `bootstrap.sh` 整合了环境初始化、密码生成、镜像拉取、服务启动等全部步骤。在全新云服务器上只需一条命令：
-
-#### 方式 A：远程一键部署
-
-```bash
-# SSH 登录服务器后，直接执行（无需提前克隆项目）
-curl -fsSL https://raw.githubusercontent.com/For2006/SnapShop/main/bootstrap.sh | sudo bash -s -- --non-interactive
-```
-
-脚本会自动完成：
-1. 安装 Docker + Docker Compose + Git
-2. 克隆项目到 `/opt/snapshop`
-3. 自动生成并保存所有密码
-4. 从 GitHub Container Registry 拉取预构建镜像
-5. 启动全部 6 个容器（backend + PostgreSQL + Redis + MinIO + Nginx）
-6. 运行数据库迁移
-
-> **注意**：自动生成的密码会在屏幕上显示一次，请妥善保存。若需自定义配置，使用下面的交互模式。
-
-#### 方式 B：交互模式（自定义配置）
-
-```bash
-# 克隆项目
-git clone https://github.com/For2006/SnapShop.git /opt/snapshop
-cd /opt/snapshop
-
-# 交互式部署（逐个询问配置项，回车使用自动生成值）
-sudo bash bootstrap.sh
-```
-
-#### 方式 C：本地构建模式（不用 GHCR 镜像）
-
-```bash
-cd /opt/snapshop
-sudo bash bootstrap.sh --build
-```
-
-### 8.3 命令行选项
-
-| 选项 | 说明 |
-|------|------|
-| `--ghcr-user=NAME` | GitHub 用户名（默认 `for2006`） |
-| `--ghcr-token=TOKEN` | GitHub Personal Access Token，私有镜像需要 |
-| `--build` | 在服务器上本地构建镜像，不从 GHCR 拉取 |
-| `--non-interactive` | 非交互模式，自动生成所有密码和密钥 |
-| `--project-dir=PATH` | 自定义项目安装目录（默认 `/opt/snapshop`） |
-
-### 8.4 手动部署（不使用 bootstrap.sh）
-
-如果不使用一键脚本，也可以逐步手动部署：
-
-#### 步骤 1：上传项目并初始化环境
-
-```bash
-# 上传项目（任选一种方式）
-git clone https://github.com/For2006/SnapShop.git /opt/snapshop
-# 或: rsync -avz --exclude '.git' ./ root@YOUR_SERVER_IP:/opt/snapshop/
-
-# SSH 登录，运行环境初始化
-cd /opt/snapshop/backend
-bash ../deploy/setup.sh
-```
-
-#### 步骤 2：配置环境变量
-
-```bash
-cp .env.production .env
-nano .env
-```
-
-需要修改的必填项：
-- `POSTGRES_PASSWORD`、`MINIO_ROOT_PASSWORD`：设置强密码
-- `JWT_SECRET`：运行 `python3 -c "import secrets; print(secrets.token_urlsafe(32))"` 生成
-- AI 配置（ARK_*）已预填比赛专用值，无需修改
-
-#### 步骤 3：启动服务
-
-```bash
-# 一键部署（拉取 GHCR 镜像并启动）
-bash ../deploy/deploy.sh
-
-# 或手动执行：
-docker compose -f docker-compose.prod.yml up -d
-docker compose -f docker-compose.prod.yml exec backend alembic upgrade head
-```
-
-#### 步骤 4：验证
-
-```bash
-curl http://YOUR_SERVER_IP/health
-# 预期返回：{"status":"healthy"}
-```
-
-### 8.5 后续更新
-
-代码推送到 main 分支后，GitHub Actions 会自动构建新镜像推送到 GHCR。在服务器上执行：
-
-```bash
-cd /opt/snapshop && bash deploy/update.sh
-```
-
-该脚本会自动拉取最新镜像、仅重建 backend 容器（不中断其他服务）、运行新迁移。
-
-### 8.6 前端 APK 构建与分发
-
-部署后端后，构建前端 APK 安装包供用户下载安装。
-
-#### 8.6.1 在服务器上构建 APK
-
-**1. 安装 Flutter SDK**
-
-```bash
-cd /opt
-wget https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.22.0-stable.tar.xz
-tar xf flutter_linux_3.22.0-stable.tar.xz
-echo 'export PATH="$PATH:/opt/flutter/bin"' >> ~/.bashrc
-source ~/.bashrc
-flutter doctor
-```
-
-**2. 安装 Android SDK 和 JDK**
-
-```bash
-# JDK 17
-apt-get install -y openjdk-17-jdk-headless
-
-# Android 命令行工具
-mkdir -p /opt/android-sdk/cmdline-tools
-cd /opt/android-sdk/cmdline-tools
-wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-unzip commandlinetools-linux-11076708_latest.zip
-mv cmdline-tools latest
-
-export ANDROID_HOME=/opt/android-sdk
-export PATH="$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools"
-
-yes | sdkmanager --licenses
-sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
-```
-
-**3. 配置后端地址**
-
-修改 `snapshop/lib/core/network/api_client.dart` 中的生产环境地址：
-
-```dart
-static const String _productionBaseUrl = 'http://你的服务器IP';
-```
-
-**4. 配置 APK 签名（推荐）**
-
-```bash
-# 生成签名密钥
-keytool -genkey -v -keystore /opt/snapshop/snapshop-release-key.jks \
-  -keyalg RSA -keysize 2048 -validity 10000 \
-  -alias snapshop-release -storetype JKS
-```
-
-创建 `snapshop/android/key.properties`：
-```
-storePassword=你的密钥库密码
-keyPassword=你的密钥密码
-keyAlias=snapshop-release
-storeFile=/opt/snapshop/snapshop-release-key.jks
-```
-
-编辑 `snapshop/android/app/build.gradle.kts`，在文件顶部 `android` 块之前添加：
-
-```kotlin
-def keystoreProperties = new Properties()
-def keystorePropertiesFile = rootProject.file('key.properties')
-if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-}
-```
-
-在 `android` 块内添加 `signingConfigs`，并将 `buildTypes.release.signingConfig` 改为：
-
-```kotlin
-signingConfigs {
-    create("release") {
-        keyAlias = keystoreProperties["keyAlias"] as String?
-        keyPassword = keystoreProperties["keyPassword"] as String?
-        storeFile = keystoreProperties["storeFile"] ? file(keystoreProperties["storeFile"]) : null
-        storePassword = keystoreProperties["storePassword"] as String?
-    }
-}
-buildTypes {
-    release {
-        signingConfig = signingConfigs.getByName("release")
-    }
-}
-```
-
-> 跳过签名步骤时，APK 将使用 debug 密钥签名，不影响功能测试。
-
-**5. 构建 APK**
-
-```bash
-cd /opt/snapshop/snapshop
-flutter pub get
-flutter build apk --release
-# APK 输出路径: build/app/outputs/flutter-apk/app-release.apk
-```
-
-#### 8.6.2 在本地 Windows 开发机构建
-
-**⚠️ 重要**：构建 Release APK 前必须配置正确的后端地址。Release 模式下 App 使用 `_productionBaseUrl` 常量，不会自动检测环境。
-
-编辑 `snapshop/lib/core/network/api_client.dart` 第 105 行：
-
-```dart
-// 方式 A：使用 ADB 反向代理（手机 USB 连接电脑）
-static const _productionBaseUrl = 'http://localhost:8000/api/v1';
-
-// 方式 B：连接云服务器（替换为你的服务器 IP）
-static const _productionBaseUrl = 'http://你的服务器IP/api/v1';
-```
-
-| 方式 | 适用场景 | 额外操作 |
-|------|----------|----------|
-| `localhost` | 手机 USB 连接电脑，电脑运行后端 | 需执行 `adb reverse tcp:8000 tcp:8000` |
-| 服务器 IP | 后端已部署到云服务器，评委远程访问 | 无额外操作 |
-
-> **评委友好推荐**：如果评委会独立使用 App，建议先部署后端到云服务器（参考上方 8.1 节），将 `_productionBaseUrl` 改为服务器 IP 后再构建 APK。
-
-```bash
-cd snapshop
-
-# 1. 按上述说明修改 api_client.dart 中的 _productionBaseUrl
-# 2. 构建 Release APK
-flutter build apk --release
-# 输出: build/app/outputs/flutter-apk/app-release.apk
-```
-
-或使用 `start.ps1` 一键完成（自动检测 ADB 设备、构建 APK、安装并启动，**使用 localhost 地址**）：
-
-```powershell
-.\start.ps1
-```
-
-#### 8.6.3 分发 APK
-
-| 方式 | 操作 |
-|------|------|
-| **Nginx 静态下载** | 将 APK 放入 Nginx 静态目录，用户访问 `http://服务器IP/app-release.apk` 下载 |
-| **ADB 安装** | USB 连接手机后 `adb install app-release.apk` |
-| **二维码分发** | 生成 APK 下载链接的二维码，手机扫码下载安装 |
-
-> Android 设备需开启「设置 → 安全 → 允许安装未知来源应用」才能安装非应用商店的 APK。
-
-### 8.7 端口说明
-
-| 端口 | 服务 | 对外 | 说明 |
-|------|------|:--:|------|
-| 80 | Nginx | ✅ | HTTP 入口，反向代理到后端 |
-| 8000 | FastAPI | ❌ | 仅 Docker 内网 |
-| 5432 | PostgreSQL | ❌ | 仅 Docker 内网 |
-| 6379 | Redis | ❌ | 仅 Docker 内网 |
-| 9000 | MinIO | ✅ | 图片上传/访问 |
-
-### 8.8 部署架构
-
-```
-互联网 (80端口)
-    │
-    ▼
-┌──────────┐
-│  Nginx   │  反向代理
-└────┬─────┘
-     │
-     ├── /api/*   →  backend:8000  (FastAPI)
-     ├── /images/ →  minio:9000    (图片直连)
-     ├── /docs    →  backend:8000  (Swagger UI)
-     └── /health  →  backend:8000  (健康检查)
-           │
-     ┌─────┴──────┬──────────┐
-     ▼            ▼          ▼
-  backend     postgres    redis
-  (FastAPI)   (端口5432)   (端口6379)
-     │
-     ▼
-  minio:9000
-  (对象存储)
-```
-
----
-
-## 9. 完整部署到发布流程速查
-
-从零开始，一条路径走通：**服务器部署后端 → 构建前端 APK → 分发安装**。
-
-```
-┌─────────────────────────────────────────────────────┐
-│  1. 准备云服务器                                      │
-│     - 2核4GB+, Ubuntu 22.04, 开放 22/80 端口          │
-├─────────────────────────────────────────────────────┤
-│  2. 一键部署后端                                      │
-│     curl .../bootstrap.sh | sudo bash --non-interactive │
-│     记录屏幕输出的密码, 验证 curl http://IP/health      │
-├─────────────────────────────────────────────────────┤
-│  3. 构建 APK                                         │
-│     (服务器或本地) flutter build apk --release        │
-│     生成: build/app/outputs/flutter-apk/app-release.apk │
-├─────────────────────────────────────────────────────┤
-│  4. 分发 APK                                         │
-│     - Nginx 静态下载 / 二维码 / ADB 安装 / 应用商店      │
-│     - 用户安装后即可连接后端使用                         │
-└─────────────────────────────────────────────────────┘
-```
-
-### 关键命令速查
-
-```bash
-# 服务器部署
-curl -fsSL https://raw.githubusercontent.com/For2006/SnapShop/main/bootstrap.sh | sudo bash -s -- --non-interactive
-
-# 验证后端
-curl http://服务器IP/health
-
-# 更新后端
-cd /opt/snapshop && bash deploy/update.sh
-
-# 构建 APK (服务器)
-cd /opt/snapshop/snapshop && flutter pub get && flutter build apk --release
-
-# 构建 APK (本地)
-cd snapshop && flutter build apk --release
-
-# ADB 安装 APK
-adb install build/app/outputs/flutter-apk/app-release.apk
-
-# 查看容器状态
-docker compose -f /opt/snapshop/backend/docker-compose.prod.yml ps
-
-# 查看后端日志
-docker compose -f /opt/snapshop/backend/docker-compose.prod.yml logs -f backend
-```

@@ -1,13 +1,13 @@
-import uuid
 import logging
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import SearchSession, SessionStatus
 from app.core.exceptions import AppException
-from app.services.search_service import SearchService
+from app.models import SearchSession, SessionStatus
 from app.services.comparison_service import ComparisonService
-from app.services.suggestion_service import SuggestionService
 from app.services.product_serializer import serialize_product
+from app.services.search_service import SearchService
+from app.services.suggestion_service import SuggestionService
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ class TextSearchService:
 
         try:
             products = await self._search_service.search_all(
-                keywords=keywords, session=session, db=db
+                keywords=keywords, session=session, db=db, skip_persist=True,
             )
         except Exception as e:
             logger.error(f"[TextSearch] 搜索异常: {e}")
@@ -47,8 +47,7 @@ class TextSearchService:
             products, keywords
         )
 
-        from app.services.browse_recorder import record_browse_entries
-        await record_browse_entries(filtered_products, device_id, db)
+        await self._search_service._persist_products(filtered_products, session.id, db)
 
         suggestions = SuggestionService.get_preset_suggestions()
 

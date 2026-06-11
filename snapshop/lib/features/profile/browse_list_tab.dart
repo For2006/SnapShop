@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import '../../config/theme_context.dart';
 import '../../config/app_colors.dart';
 import '../../config/l10n/app_localizations.dart';
+import '../../core/cache/api_cache.dart';
 import '../../core/mock_data.dart';
 import '../../core/network/api_client.dart';
 import '../../shared/widgets/platform_badge.dart';
@@ -35,21 +35,27 @@ class _BrowseListTabState extends ConsumerState<BrowseListTab> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    final cache = ApiCache();
+    final cached = cache.get<List<Map<String, dynamic>>>('browse');
+    if (cached != null) {
+      if (mounted) setState(() { _items = cached; _loading = false; });
+    }
+
     try {
       final api = ApiClient();
-      final response = await api.get('/browse', queryParameters: {'page': 1, 'size': 50});
+      final response = await api.get('/browse', queryParameters: {'page': 1, 'size': 20});
       final raw = response.data;
       if (raw is! Map<String, dynamic>) {
-        if (mounted) setState(() => _loading = false);
+        if (mounted && _items.isEmpty) setState(() => _loading = false);
         return;
       }
       final list = raw['items'];
       final items = list is List ? list.cast<Map<String, dynamic>>() : <Map<String, dynamic>>[];
+      cache.set('browse', items);
       if (mounted) setState(() { _items = items; _loading = false; });
     } catch (e) {
       debugPrint('[BrowseListTab] _load 失败: $e');
-      if (mounted) setState(() => _loading = false);
+      if (mounted && _items.isEmpty) setState(() => _loading = false);
     }
   }
 
@@ -57,6 +63,7 @@ class _BrowseListTabState extends ConsumerState<BrowseListTab> {
     final item = _items[index];
     final browseId = item['id']?.toString() ?? '';
     final removed = _items.removeAt(index);
+    ApiCache().remove('browse');
     setState(() {});
 
     try {
@@ -96,6 +103,7 @@ class _BrowseListTabState extends ConsumerState<BrowseListTab> {
       try {
         final api = ApiClient();
         await api.delete('/browse');
+        ApiCache().remove('browse');
       } catch (e) {
         debugPrint('[BrowseListTab] 清空失败: $e');
         if (mounted) setState(() => _items = backup);
@@ -109,11 +117,13 @@ class _BrowseListTabState extends ConsumerState<BrowseListTab> {
       final dt = DateTime.parse(timeStr);
       final now = DateTime.now();
       final diff = now.difference(dt);
-      if (diff.inMinutes < 1) return '刚刚';
-      if (diff.inMinutes < 60) return '${diff.inMinutes}分钟前';
-      if (diff.inHours < 24) return '${diff.inHours}小时前';
-      if (diff.inDays < 7) return '${diff.inDays}天前';
-      return DateFormat('M/d').format(dt);
+      final l10n = AppLocalizations.of(context);
+      if (diff.inMinutes < 1) return l10n.timeJustNow;
+      if (diff.inMinutes < 60) return l10n.xMinutesAgo(diff.inMinutes);
+      if (diff.inHours < 24) return l10n.xHoursAgo(diff.inHours);
+      if (diff.inDays < 7) return l10n.xDaysAgo(diff.inDays);
+      final isZh = Localizations.localeOf(context).languageCode == 'zh';
+      return isZh ? '${dt.month}/${dt.day}' : '${dt.month.toString().padLeft(2, '0')}/${dt.day.toString().padLeft(2, '0')}';
     } catch (_) {
       return '';
     }

@@ -24,12 +24,14 @@ async def get_current_user(
     authorization: str | None = Header(None, alias="Authorization"),
     db: AsyncSession = Depends(get_db),
 ):
-    from app.core.security import decode_access_token
+    from app.core.security import decode_access_token, is_token_blacklisted
     from app.models import User
 
     if not authorization or not authorization.startswith("Bearer "):
-        return None
+        raise AppException(status_code=401, error_code="UNAUTHORIZED", message="未登录，请先登录")
     token = authorization.removeprefix("Bearer ")
+    if await is_token_blacklisted(token):
+        raise AppException(status_code=401, error_code="TOKEN_REVOKED", message="Token已被吊销，请重新登录")
     user_id = decode_access_token(token)
     if not user_id:
         raise AppException(status_code=401, error_code="INVALID_TOKEN", message="Token无效或已过期")
@@ -110,7 +112,10 @@ def get_filter_service():
 
     return _get_or_create_service(
         "filter",
-        lambda: FilterService(llm_strategy=ArkLLMStrategy(llm_client=ArkLLMClient())),
+        lambda: FilterService(
+            llm_strategy=ArkLLMStrategy(llm_client=ArkLLMClient()),
+            llm_client=ArkLLMClient(),
+        ),
     )
 
 
@@ -129,8 +134,8 @@ def get_comparison_service():
 
 def get_text_search_service():
     from app.clients.ark_llm_client import ArkLLMClient
-    from app.services.text_search_service import TextSearchService
     from app.services.search_service import SearchService
+    from app.services.text_search_service import TextSearchService
 
     search_service = _get_or_create_service("search", lambda: SearchService())
     return _get_or_create_service("text_search", lambda: TextSearchService(

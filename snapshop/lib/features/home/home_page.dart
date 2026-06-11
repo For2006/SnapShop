@@ -5,6 +5,7 @@ import '../../config/app_colors.dart';
 import '../../config/l10n/app_localizations.dart';
 import '../../config/theme_context.dart';
 import '../../config/route_observer.dart';
+import '../../core/cache/api_cache.dart';
 import '../../core/network/api_client.dart';
 import '../../core/history_item.dart';
 import '../settings/settings_provider.dart';
@@ -563,7 +564,13 @@ class _HomePageState extends ConsumerState<HomePage>
   }
 
   Future<void> _loadHistory() async {
-    setState(() => _historyLoading = true);
+    final cache = ApiCache();
+    final cached = cache.get<List<dynamic>>('search_history');
+    if (cached != null) {
+      if (mounted) setState(() { _historyItems = cached.cast<HistoryItem>(); _historyLoading = false; });
+    } else {
+      setState(() => _historyLoading = true);
+    }
     try {
       final api = ApiClient();
       final response = await api.get('/history');
@@ -572,10 +579,11 @@ class _HomePageState extends ConsumerState<HomePage>
       if (data is Map && data['items'] is List) {
         items = (data['items'] as List).map((e) => HistoryItem.fromJson(e as Map<String, dynamic>)).toList();
       }
+      cache.set('search_history', items);
       if (mounted) setState(() { _historyItems = items; _historyLoading = false; });
     } catch (e) {
       debugPrint('[HomePage] _loadHistory 失败: $e');
-      if (mounted) setState(() => _historyLoading = false);
+      if (mounted && _historyItems.isEmpty) setState(() => _historyLoading = false);
     }
   }
 

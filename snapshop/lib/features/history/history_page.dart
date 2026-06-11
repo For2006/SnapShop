@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../config/app_colors.dart';
 import '../../config/theme_context.dart';
 import '../../config/l10n/app_localizations.dart';
+import '../../core/cache/api_cache.dart';
 import '../../core/network/api_client.dart';
 import '../../core/history_item.dart';
 import '../../shared/widgets/search_history_section.dart';
@@ -40,6 +41,12 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   }
 
   Future<void> _loadAll() async {
+    final cache = ApiCache();
+    final cachedHistory = cache.get<List<dynamic>>('search_history');
+    if (cachedHistory != null) {
+      setState(() => _historyItems = cachedHistory.cast<HistoryItem>());
+    }
+
     setState(() => _loading = true);
     await Future.wait([_loadHistory(), _loadBrowse()]);
     if (mounted) setState(() => _loading = false);
@@ -55,6 +62,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       } else if (data is Map && data['items'] is List) {
         items = (data['items'] as List).map((e) => HistoryItem.fromJson(e as Map<String, dynamic>)).toList();
       }
+      ApiCache().set('search_history', items);
       if (mounted) setState(() => _historyItems = items);
     } catch (e) {
       debugPrint('[HistoryPage] 加载搜索历史失败: $e');
@@ -71,6 +79,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
             .map((e) => BrowseHistoryItem.fromJson(e as Map<String, dynamic>))
             .toList();
       }
+      ApiCache().set('browse', items);
       if (mounted) setState(() => _browseItems = items);
     } catch (e) {
       debugPrint('[HistoryPage] 加载浏览历史失败: $e');
@@ -80,6 +89,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   Future<bool> _deleteSearchHistory(HistoryItem item) async {
     try {
       await _api.delete('/history/${item.sessionId}');
+      ApiCache().remove('search_history');
       setState(() => _historyItems.removeWhere((i) => i.sessionId == item.sessionId));
       return true;
     } catch (e) {

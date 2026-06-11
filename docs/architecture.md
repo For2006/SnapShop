@@ -853,26 +853,73 @@ docker-compose.yml
 └── minio (S3 兼容, 替代 TOS)     :9000  (本地图片存储)
 ```
 
-### 8.2 生产拓扑（火山引擎）
+### 8.2 生产部署拓扑（阿里云 ECS 单机）
+
+生产环境通过 `docker-compose.prod.yml` 在单台阿里云 ECS 上编排全部服务，Nginx 作为统一入口：
 
 ```
-                     Nginx (TLS 终止 + 反向代理 + 限流 + 图片大小限制)
-                                   │
-               ┌───────────────────┴───────────────────┐
-               │                                       │
-      ECS Instance #1                          ECS Instance #2
-        FastAPI :8000                            FastAPI :8000
-               │                                       │
-               └───────────────────┬───────────────────┘
-                                   │
-               ┌───────────────────┴───────────────────┐
-               │                                       │
-    火山引擎 RDS PostgreSQL                 火山引擎 Redis 缓存
-               │
-   火山引擎 TOS (用户图片 + 商品缩略图 CDN)
+                    公网 HTTP :80
+                          │
+                   ┌──────┴──────┐
+                   │    Nginx     │
+                   │  (反向代理)   │
+                   └──────┬──────┘
+                          │
+           ┌──────────────┼──────────────┐
+           │              │              │
+    /api/* → backend    /images/* →    /docs → backend
+           :8000        minio:9000     :8000/docs
+              │              │
+    ┌─────────┴─────────┐   │
+    │                   │   │
+  PostgreSQL 16       Redis 7  MinIO
+  (Docker 内网)     (Docker 内网) (图片存储)
 ```
 
-### 8.3 CI/CD
+**端口策略**：
+
+| 端口 | 服务 | 对外 | 说明 |
+|------|------|:--:|------|
+| 80 | Nginx | ✅ | HTTP 统一入口 |
+| 8000 | FastAPI | ❌ | 仅 Docker 内网 |
+| 5432 | PostgreSQL | ❌ | 仅 Docker 内网 |
+| 6379 | Redis | ❌ | 仅 Docker 内网 |
+| 9000 | MinIO API | ✅ | 图片上传/访问 |
+
+### 8.3 生产与开发配置分离
+
+项目提供两套 Docker Compose 配置，按环境选择：
+
+| 文件 | 用途 | 差异 |
+|------|------|------|
+| `docker-compose.yml` | 本地开发 | 端口全暴露、代码卷挂载热重载、debug 模式 |
+| `docker-compose.prod.yml` | 服务器生产 | db/redis 仅内网、无代码挂载、叠加 Nginx 反向代理 |
+
+开发环境直接使用 IDE 调试，生产环境所有流量经 Nginx 入口：
+
+```
+开发:  docker compose up -d
+生产:  docker compose -f docker-compose.prod.yml up -d
+```
+
+**Nginx 配置**位于 `deploy/nginx/`：
+- `nginx.conf` — 主配置（gzip、连接优化、日志格式）
+- `default.conf.template` — 站点模板（反向代理规则、SSE 支持、安全头、上传限制）
+
+Nginx 反向代理路由：
+
+| 路径 | 目标 | 特殊处理 |
+|------|------|----------|
+| `/health` | `backend:8000/health` | 关闭访问日志 |
+| `/api/` | `backend:8000/api/` | SSE 流式支持（proxy_buffering off）、300s 超时、10MB 上传限制 |
+| `/images/` | `minio:9000/snapshop-images/` | 7 天浏览器缓存 |
+| `/docs` | `backend:8000/docs` | Swagger 文档 |
+
+**一键部署脚本**位于 `deploy/`：
+- `setup.sh` — ECS 环境初始化（Docker + Compose + 防火墙 + 内核参数）
+- `deploy.sh` — 项目部署（停止旧服务 → 构建镜像 → 启动）
+
+### 8.4 CI/CD
 
 ```
 Git Push → GitHub Actions
@@ -891,7 +938,9 @@ Git Push → GitHub Actions
       └── Upload → 内部制品仓库 / 各应用商店
 ```
 
-### 8.4 环境变量
+### 8.5 环境变量
+
+生产环境使用 `.env.production` 模板（`backend/.env.production`），预填了比赛专用 AI 密钥。
 
 | 变量 | 说明 | 示例 |
 |------|------|------|
@@ -900,11 +949,7 @@ Git Push → GitHub Actions
 | `ARK_LLM_ENDPOINT_ID` | LLM 推理端点 ID | `ep-llm-xxx` |
 | `DATABASE_URL` | PostgreSQL 连接串 | `postgresql+asyncpg://...` |
 | `REDIS_URL` | Redis 连接串 | `redis://...` |
-| `TOS_BUCKET` | 火山 TOS Bucket 名 | `snapshop-images` |
-| `TOS_ENDPOINT` | TOS 访问端点 | `tos-cn-beijing.volces.com` |
 | `JWT_SECRET` | JWT 签名密钥 | (随机生成) |
-| `TB_APP_KEY` | 淘宝开放平台 App Key | `tb_xxx` |
-| `TB_APP_SECRET` | 淘宝开放平台 App Secret | `tb_secret_xxx` |
 | `JD_APP_KEY` | 京东开普勒 App Key | `jd_xxx` |
 | `JD_APP_SECRET` | 京东开普勒 App Secret | `jd_secret_xxx` |
 | `PDD_CLIENT_ID` | 拼多多开放平台 Client ID | `pdd_xxx` |
@@ -912,7 +957,7 @@ Git Push → GitHub Actions
 | `API_TIMEOUT` | 电商 API 超时（秒） | `10` |
 | `API_MAX_RETRIES` | 电商 API 最大重试次数 | `3` |
 
-### 8.5 Flutter 三端构建与分发
+### 8.6 Flutter 三端构建与分发
 
 ```
 # Android
@@ -1003,7 +1048,7 @@ data: {"type": "done"}
 **图片大小双重校验机制**：
 1. 前端：图片上传前自动压缩至 ≤2MB
 2. 后端：Pydantic Schema 明确加入 content-length ≤ 2MB 硬性拦截
-3. Nginx：网关层设置 client_max_body_size 5M，配合前端≤2MB策略，预留合理传输开销和容错空间
+3. Nginx：网关层设置 client_max_body_size 10M（匹配生产配置），配合前端≤2MB策略，预留合理传输开销和容错空间
 
 ---
 

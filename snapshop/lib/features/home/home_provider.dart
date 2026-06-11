@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../core/mock_data.dart';
-import '../../core/network/api_client.dart';
+import '../../core/network/api_client.dart' show ApiClient, AppException;
 import '../../core/utils/image_compress.dart';
 
 enum RecognitionStatus { idle, recognizing, completed }
@@ -137,7 +137,21 @@ class HomeNotifier extends Notifier<HomeState> {
     state = state.copyWith(isHistoryOpen: false);
   }
 
+  CancelToken? _recognizeCancelToken;
+  CancelToken? _pollCancelToken;
+  int _pollAttempts = 0;
+  static const int _maxPollAttempts = 20;
+  static const Duration _pollInterval = Duration(milliseconds: 1500);
+
   Future<void> startRecognition({File? imageFile}) async {
+    // 防止重复提交识别请求
+    if (state.recognitionStatus == RecognitionStatus.recognizing) return;
+    
+    // 取消上一个未完成的识别请求
+    _recognizeCancelToken?.cancel('新的识别请求已发起');
+    _recognizeCancelToken = CancelToken();
+    _pollCancelToken?.cancel('新的识别请求已发起');
+    
     _lastOperationType = _OperationType.image;
     state = state.copyWith(
       recognitionStatus: RecognitionStatus.recognizing,
@@ -162,16 +176,24 @@ class HomeNotifier extends Notifier<HomeState> {
         return;
       }
       File uploadFile = sourceFile;
+      bool isTempCompressedFile = false;
       final bytes = await sourceFile.readAsBytes();
-      if (await ImageCompress.shouldCompress(bytes)) {
+      // 限制最大上传文件大小，超过5MB直接压缩
+      if (await ImageCompress.shouldCompress(bytes) || bytes.length > 5 * 1024 * 1024) {
         final compressed = await ImageCompress.compress(bytes);
         final tempDir = await getTemporaryDirectory();
-        final compressedFile = File('${tempDir.path}/compress_recognize.jpg');
+        final compressedFile = File('${tempDir.path}/compress_recognize_${DateTime.now().millisecondsSinceEpoch}.jpg');
         await compressedFile.writeAsBytes(compressed);
         uploadFile = compressedFile;
+        isTempCompressedFile = true;
         debugPrint('[HomeProvider] 图片压缩: ${bytes.length} -> ${compressed.length} bytes');
       }
-      final response = await _api.uploadFile('/recognize', uploadFile);
+      final response = await _api.uploadFile(
+        '/recognize', 
+        uploadFile,
+        fieldName: 'image',
+        cancelToken: _recognizeCancelToken,
+      );
       final data = response.data;
       if (data is! Map<String, dynamic>) {
         debugPrint('[HomeProvider] 响应格式异常: ${data.runtimeType}');
@@ -179,22 +201,29 @@ class HomeNotifier extends Notifier<HomeState> {
           recognitionStatus: RecognitionStatus.completed,
           errorMessage: '服务器返回数据异常，请稍后重试',
         );
+        // 后台异步清理临时文件，不阻塞页面跳转
+        if (isTempCompressedFile) {
+          uploadFile.exists().then((exists) {
+            if (exists) uploadFile.delete();
+          });
+        }
         return;
       }
+      // 立即更新状态触发页面跳转，不等待文件删除
       _handleApiResponse(data);
-    } on DioException catch (e) {
-      String message = '识别失败，请检查网络后重试';
-      if (e.response != null) {
-        final detail = e.response!.data;
-        if (detail is Map<String, dynamic>) {
-          message = detail['message']?.toString() ?? message;
-        }
-      } else if (e.type == DioExceptionType.connectionTimeout ||
-          e.type == DioExceptionType.receiveTimeout) {
-        message = '网络连接超时，请检查网络后重试';
-      } else if (e.type == DioExceptionType.connectionError) {
-        message = '无法连接服务器，请确认手机与电脑在同一网络';
+      // 后台异步清理临时文件，完全不阻塞主流程
+      if (isTempCompressedFile) {
+        uploadFile.exists().then((exists) {
+          if (exists) uploadFile.delete();
+        });
       }
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.cancel) {
+        debugPrint('[HomeProvider] 识别请求已取消');
+        state = state.copyWith(recognitionStatus: RecognitionStatus.idle);
+        return;
+      }
+      String message = _extractDioError(e, '识别失败');
       state = state.copyWith(
         recognitionStatus: RecognitionStatus.completed,
         errorMessage: message,
@@ -204,6 +233,37 @@ class HomeNotifier extends Notifier<HomeState> {
         recognitionStatus: RecognitionStatus.completed,
         errorMessage: '识别失败：$e',
       );
+    }
+  }
+
+  String _extractDioError(DioException e, String fallback) {
+    if (e.error is AppException) {
+      final msg = (e.error as AppException).message;
+      if (msg == '发生未知错误') {
+        return '$fallback（网络异常，请重试）';
+      }
+      return msg;
+    }
+    if (e.response != null) {
+      final detail = e.response!.data;
+      if (detail is Map<String, dynamic>) {
+        final msg = detail['message']?.toString();
+        if (msg != null && msg.isNotEmpty) return msg;
+      }
+    }
+    switch (e.type) {
+      case DioExceptionType.connectionTimeout:
+        return '连接超时，请检查网络后重试';
+      case DioExceptionType.sendTimeout:
+        return '发送超时，请检查网络后重试';
+      case DioExceptionType.receiveTimeout:
+        return '服务器响应超时，请检查网络后重试';
+      case DioExceptionType.connectionError:
+        return '无法连接服务器，请检查：\n1. 手机网络是否正常\n2. 后端服务是否已启动\n3. API地址配置是否正确';
+      case DioExceptionType.badCertificate:
+        return 'SSL证书验证失败';
+      default:
+        return '$fallback（${e.type.name}）';
     }
   }
 
@@ -229,18 +289,7 @@ class HomeNotifier extends Notifier<HomeState> {
       }
       _handleApiResponse(data);
     } on DioException catch (e) {
-      String message = '搜索失败，请检查网络后重试';
-      if (e.response != null) {
-        final detail = e.response!.data;
-        if (detail is Map<String, dynamic>) {
-          message = detail['message']?.toString() ?? message;
-        }
-      } else if (e.type == DioExceptionType.connectionTimeout ||
-          e.type == DioExceptionType.receiveTimeout) {
-        message = '网络连接超时，请检查网络后重试';
-      } else if (e.type == DioExceptionType.connectionError) {
-        message = '无法连接服务器，请确认手机与电脑在同一网络';
-      }
+      String message = _extractDioError(e, '搜索失败');
       state = state.copyWith(
         recognitionStatus: RecognitionStatus.completed,
         errorMessage: message,
@@ -260,13 +309,60 @@ class HomeNotifier extends Notifier<HomeState> {
             .toList() ??
         [];
     _originalProducts = null;
+
+    final needPoll = products.isEmpty && sessionId != null && _lastOperationType == _OperationType.image;
+
     state = state.copyWith(
-      recognitionStatus: RecognitionStatus.completed,
+      recognitionStatus: needPoll ? RecognitionStatus.recognizing : RecognitionStatus.completed,
       recognitionResult: MockRecognitionResult.fromJson(data),
       products: products,
       sessionId: sessionId,
       clearFilter: true,
       clearSort: true,
+    );
+
+    if (needPoll) {
+      _pollProducts(sessionId);
+    }
+  }
+
+  Future<void> _pollProducts(String sessionId) async {
+    _pollCancelToken?.cancel();
+    _pollCancelToken = CancelToken();
+    _pollAttempts = 0;
+
+    while (_pollAttempts < _maxPollAttempts) {
+      if (_pollCancelToken!.isCancelled) return;
+      await Future.delayed(_pollInterval);
+      if (_pollCancelToken!.isCancelled) return;
+      _pollAttempts++;
+
+      try {
+        final response = await _api.get('/products/$sessionId', queryParameters: {'page': 1, 'size': 50});
+        final data = response.data;
+        if (data is Map<String, dynamic>) {
+          final items = data['items'] as List<dynamic>? ?? [];
+          if (items.isNotEmpty) {
+            final products = items.map((e) => MockProduct.fromJson(e as Map<String, dynamic>)).toList();
+            _handleProductsPollResult(products);
+            return;
+          }
+        }
+      } catch (e) {
+        debugPrint('[HomeProvider] 轮询商品失败 (attempt $_pollAttempts): $e');
+      }
+    }
+    debugPrint('[HomeProvider] 轮询商品超时，$_maxPollAttempts次未获取到结果');
+    if (state.recognitionStatus == RecognitionStatus.recognizing) {
+      state = state.copyWith(recognitionStatus: RecognitionStatus.completed);
+    }
+  }
+
+  void _handleProductsPollResult(List<MockProduct> products) {
+    _originalProducts = null;
+    state = state.copyWith(
+      recognitionStatus: RecognitionStatus.completed,
+      products: products,
     );
   }
 
@@ -276,7 +372,7 @@ class HomeNotifier extends Notifier<HomeState> {
 
     final newAttrs = result.attributes.map((attr) {
       if (attr.key == key) {
-        return attr.copyWith(value: newValue, confidence: 1.0);
+        return attr.copyWith(value: newValue);
       }
       return attr;
     }).toList();
@@ -285,6 +381,33 @@ class HomeNotifier extends Notifier<HomeState> {
       recognitionResult: MockRecognitionResult(
         category: result.category,
         attributes: newAttrs,
+        suggestions: result.suggestions,
+      ),
+    );
+  }
+
+  void updateProductsAfterAttributeEdit(List<MockProduct> products) {
+    _originalProducts = null;
+    state = state.copyWith(products: products);
+  }
+
+  void updateRecognitionAttributes(List<dynamic> attrsList) {
+    final result = state.recognitionResult;
+    if (result == null) return;
+
+    final attrs = attrsList.map((a) {
+      final m = a as Map<String, dynamic>;
+      return MockAttribute(
+        key: m['key']?.toString() ?? '',
+        label: m['label']?.toString() ?? '',
+        value: m['value']?.toString() ?? '',
+      );
+    }).toList();
+
+    state = state.copyWith(
+      recognitionResult: MockRecognitionResult(
+        category: result.category,
+        attributes: attrs,
         suggestions: result.suggestions,
       ),
     );
@@ -337,10 +460,6 @@ final homeProvider = NotifierProvider<HomeNotifier, HomeState>(
   () => HomeNotifier(),
 );
 
-final searchQueryProvider = Provider<String>((ref) {
-  return ref.watch(homeProvider.select((state) => state.searchQuery));
-});
-
 final recognitionStatusProvider = Provider<RecognitionStatus>((ref) {
   return ref.watch(homeProvider.select((state) => state.recognitionStatus));
 });
@@ -351,32 +470,4 @@ final recognitionResultProvider = Provider<MockRecognitionResult?>((ref) {
 
 final productsProvider = Provider<List<MockProduct>>((ref) {
   return ref.watch(homeProvider.select((state) => state.products));
-});
-
-final productCountProvider = Provider<int>((ref) {
-  return ref.watch(homeProvider.select((state) => state.products.length));
-});
-
-final sessionIdProvider = Provider<String?>((ref) {
-  return ref.watch(homeProvider.select((state) => state.sessionId));
-});
-
-final errorMessageProvider = Provider<String?>((ref) {
-  return ref.watch(homeProvider.select((state) => state.errorMessage));
-});
-
-final isGalleryOpenProvider = Provider<bool>((ref) {
-  return ref.watch(homeProvider.select((state) => state.isGalleryOpen));
-});
-
-final isHistoryOpenProvider = Provider<bool>((ref) {
-  return ref.watch(homeProvider.select((state) => state.isHistoryOpen));
-});
-
-final activeFilterProvider = Provider<String?>((ref) {
-  return ref.watch(homeProvider.select((state) => state.activeFilter));
-});
-
-final activeSortProvider = Provider<String?>((ref) {
-  return ref.watch(homeProvider.select((state) => state.activeSort));
 });

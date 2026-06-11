@@ -1,4 +1,6 @@
+import asyncio
 import uuid
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,19 +16,81 @@ class SuggestionService:
         recognition_result: dict,
         recall_stats: dict,
     ) -> list[dict]:
-        # 优先使用快速生成的默认建议，提高响应速度
-        # 不再等待缓慢的 LLM 调用
-        return self._generate_default_suggestions(recall_stats)
+        rule_suggestions = self._generate_default_suggestions(recall_stats, recognition_result)
 
-    def _generate_default_suggestions(self, recall_stats: dict) -> list[dict]:
-        suggestions = [
+        if self._llm_client is None:
+            return rule_suggestions
+
+        try:
+            llm_suggestions = await asyncio.wait_for(
+                self._llm_client.generate_suggestions(recognition_result, recall_stats),
+                timeout=5.0,
+            )
+        except Exception:
+            return rule_suggestions
+
+        if not isinstance(llm_suggestions, list) or not llm_suggestions:
+            return rule_suggestions
+
+        merged = self._merge_suggestions(rule_suggestions, llm_suggestions)
+
+        if len(merged) < 4:
+            return rule_suggestions[:6]
+        if len(merged) > 6:
+            return merged[:6]
+        return merged
+
+    def _merge_suggestions(self, rule_suggestions: list[dict], llm_suggestions: list[dict]) -> list[dict]:
+        seen_ids = set()
+        merged = []
+        for card in rule_suggestions:
+            merged.append(card)
+            seen_ids.add(card["id"])
+        for card in llm_suggestions:
+            card_id = card.get("id", "")
+            if card_id and card_id in seen_ids:
+                continue
+            merged.append(card)
+            seen_ids.add(card_id)
+        return merged
+
+    def _generate_default_suggestions(self, recall_stats: dict, recognition_result: dict = None) -> list[dict]:
+        suggestions = []
+        platforms = recall_stats.get("platforms", {})
+        total_count = recall_stats.get("total_count", 0)
+        category = recall_stats.get("category", "") or (recognition_result.get("category", "") if recognition_result else "")
+        prices = []
+        ratings = []
+        for plat_data in platforms.values():
+            if isinstance(plat_data, dict):
+                prices.append(plat_data.get("min_price", 0))
+                if plat_data.get("avg_rating"):
+                    ratings.append(plat_data.get("avg_rating", 0))
+
+        suggestions.extend([
             {
-                "id": "card_sort_price",
+                "id": "card_sort_price_asc",
                 "title": "查看同款低价",
                 "icon": "trending-down",
                 "action": "sort_price",
                 "type": "normal",
                 "params": {"sort_by": "price_asc"},
+            },
+            {
+                "id": "card_sort_sales",
+                "title": "按销量排序",
+                "icon": "trending-up",
+                "action": "sort_sales",
+                "type": "normal",
+                "params": {"sort_by": "sales_desc"},
+            },
+            {
+                "id": "card_sort_rating",
+                "title": "按评分排序",
+                "icon": "star",
+                "action": "sort_rating",
+                "type": "normal",
+                "params": {"sort_by": "rating_desc"},
             },
             {
                 "id": "card_filter_official",
@@ -36,13 +100,8 @@ class SuggestionService:
                 "type": "normal",
                 "params": {"shop_type": "official"},
             },
-        ]
+        ])
 
-        platforms = recall_stats.get("platforms", {})
-        prices = []
-        for plat_data in platforms.values():
-            if isinstance(plat_data, dict):
-                prices.append(plat_data.get("min_price", 0))
         if prices and len(prices) >= 2:
             if max(prices) / (min(prices) + 0.01) > 1.3:
                 suggestions.append({
@@ -54,15 +113,34 @@ class SuggestionService:
                     "params": {},
                 })
 
-        category = recall_stats.get("category", "")
-        if "数码" in category or "手机" in category or "电脑" in category:
+        if "数码" in category or "手机" in category or "电脑" in category or "笔记本" in category or "平板" in category:
             suggestions.append({
                 "id": "card_jd_self",
-                "title": "只看京东自营（含延保服务）",
+                "title": "只看京东自营（含延保）",
                 "icon": "verified",
                 "action": "filter_jd_self",
                 "type": "primary",
                 "params": {"platform": "jd", "shop_type": "self_operated"},
+            })
+
+        if "美妆" in category or "护肤" in category or "化妆品" in category or "香水" in category:
+            suggestions.append({
+                "id": "card_tmall_official",
+                "title": "天猫国际正品保障",
+                "icon": "shield",
+                "action": "filter_tmall",
+                "type": "primary",
+                "params": {"platform": "tmall"},
+            })
+
+        if "服饰" in category or "衣服" in category or "鞋" in category or "包" in category:
+            suggestions.append({
+                "id": "card_tmall_fashion",
+                "title": "天猫品牌旗舰店",
+                "icon": "palette",
+                "action": "filter_tmall",
+                "type": "normal",
+                "params": {"platform": "tmall"},
             })
 
         pdd_min = None
@@ -84,18 +162,94 @@ class SuggestionService:
                 "params": {"platform": "pdd"},
             })
 
-        return suggestions[:6]
+        if "jd" in platforms:
+            suggestions.append({
+                "id": "card_filter_jd",
+                "title": "只看京东商品",
+                "icon": "shopping-cart",
+                "action": "filter_platform",
+                "type": "normal",
+                "params": {"platform": "jd"},
+            })
+
+        if "taobao" in platforms or "tmall" in platforms:
+            suggestions.append({
+                "id": "card_filter_taobao",
+                "title": "只看淘宝天猫",
+                "icon": "shopping-bag",
+                "action": "filter_platform",
+                "type": "normal",
+                "params": {"platform": "taobao"},
+            })
+
+        if ratings and len(ratings) >= 2:
+            avg_rating = sum(ratings) / len(ratings)
+            if avg_rating >= 4.5:
+                suggestions.append({
+                    "id": "card_high_rating",
+                    "title": "筛选4.8分以上",
+                    "icon": "star-filled",
+                    "action": "filter_high_rating",
+                    "type": "normal",
+                    "params": {"min_rating": 4.8},
+                })
+
+        suggestions.append({
+            "id": "card_filter_available",
+            "title": "只看有货商品",
+            "icon": "check-circle",
+            "action": "filter_available",
+            "type": "normal",
+            "params": {"in_stock": True},
+        })
+
+        suggestions.append({
+            "id": "card_sort_price_desc",
+            "title": "查看高端精选",
+            "icon": "diamond",
+            "action": "sort_price_desc",
+            "type": "normal",
+            "params": {"sort_by": "price_desc"},
+        })
+
+        if total_count > 50:
+            suggestions.append({
+                "id": "card_more_filters",
+                "title": "更多筛选条件",
+                "icon": "sliders",
+                "action": "show_filters",
+                "type": "normal",
+                "params": {},
+            })
+
+        return suggestions[:8]
 
     @staticmethod
     def get_preset_suggestions() -> list[dict]:
         return [
             {
-                "id": "card_sort_price",
+                "id": "card_sort_price_asc",
                 "title": "查看同款低价",
                 "icon": "trending-down",
                 "action": "sort_price",
                 "type": "normal",
                 "params": {"sort_by": "price_asc"},
+            },
+            {
+                "id": "card_sort_sales",
+                "title": "按销量排序",
+                "icon": "trending-up",
+                "action": "sort_sales",
+                "type": "normal",
+                "params": {"sort_by": "sales_desc"},
+            },
+            {
+                "id": "card_sort_rating",
+                "title": "按评分排序",
+                "icon": "star",
+                "action": "sort_rating",
+                "type": "normal",
+                "params": {"sort_by": "rating_desc"},
             },
             {
                 "id": "card_filter_official",
@@ -138,6 +292,10 @@ class SuggestionService:
         platform = params.get("platform", "")
         if platform:
             query = query.where(Product.platform == platform)
+
+        min_rating = params.get("min_rating", 0)
+        if min_rating > 0:
+            query = query.where(Product.rating >= min_rating)
 
         result = await db.execute(query.limit(100))
         products = result.scalars().all()

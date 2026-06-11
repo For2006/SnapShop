@@ -1,6 +1,3 @@
-from unittest.mock import AsyncMock, MagicMock, patch
-from fastapi.testclient import TestClient
-import uuid
 
 
 class TestHealthEndpoint:
@@ -97,7 +94,7 @@ class TestErrorResponseFormat:
         assert exc.detail["error_code"] == "SERVICE_UNAVAILABLE"
 
     def test_image_error(self):
-        from app.core.exceptions import InvalidImageError, ImageTooLargeError
+        from app.core.exceptions import ImageTooLargeError, InvalidImageError
         exc1 = InvalidImageError()
         assert exc1.status_code == 400
         assert exc1.detail["error_code"] == "INVALID_IMAGE"

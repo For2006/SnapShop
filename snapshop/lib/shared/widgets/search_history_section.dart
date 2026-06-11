@@ -45,9 +45,9 @@ class SearchHistorySection extends StatelessWidget {
           ),
           if (onClearAll != null)
             GestureDetector(
-              onTap: () => _showClearAllDialog(context),
+              onTap: () => _showClearAllDialog(context, l10n),
               child: Text(
-                '清空',
+                l10n.historyClearConfirm,
                 style: TextStyle(
                   fontSize: context.fs(12),
                   color: Colors.red.withValues(alpha: 0.8),
@@ -79,7 +79,7 @@ class SearchHistorySection extends StatelessWidget {
       children: [
         header,
         for (int i = 0; i < displayItems.length; i++) ...[
-          _buildTile(context, displayItems[i], displayItems[i].searchType == 'image'),
+          _buildTile(context, displayItems[i], l10n),
           if (i < displayItems.length - 1)
             Divider(height: 1, indent: 56, color: context.colors.divider),
         ],
@@ -87,7 +87,8 @@ class SearchHistorySection extends StatelessWidget {
     );
   }
 
-  Widget _buildTile(BuildContext context, HistoryItem item, bool isImage) {
+  Widget _buildTile(BuildContext context, HistoryItem item, AppLocalizations l10n) {
+    final isImage = item.searchType == 'image';
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -98,7 +99,7 @@ class SearchHistorySection extends StatelessWidget {
             onItemTap?.call(item.searchQuery ?? '');
           }
         },
-        onLongPress: onDelete != null ? () => _showDeleteDialog(context, item) : null,
+        onLongPress: onDelete != null ? () => _showDeleteDialog(context, item, l10n) : null,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
@@ -136,7 +137,7 @@ class SearchHistorySection extends StatelessWidget {
                     if (item.createdAt != null) ...[
                       const SizedBox(height: 2),
                       Text(
-                        _formatTime(item.createdAt!),
+                        _formatTime(item.createdAt!, l10n),
                         style: TextStyle(fontSize: context.fs(12), color: context.colors.textSecondary),
                       ),
                     ],
@@ -152,7 +153,7 @@ class SearchHistorySection extends StatelessWidget {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  isImage ? '拍照' : '搜索',
+                  isImage ? l10n.historyTypePhoto : l10n.historyTypeSearch,
                   style: TextStyle(
                     fontSize: context.fs(11),
                     color: isImage ? AppColors.brandBlue : context.colors.textSecondary,
@@ -168,60 +169,55 @@ class SearchHistorySection extends StatelessWidget {
     );
   }
 
-  void _showClearAllDialog(BuildContext context) {
+  void _showClearAllDialog(BuildContext context, AppLocalizations l10n) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('清空搜索记录'),
-        content: const Text('确定要清空所有搜索记录吗？此操作不可恢复。'),
+        title: Text(l10n.historyClearTitle),
+        content: Text(l10n.historyClearMessage),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.cacheCancel)),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
               onClearAll?.call();
             },
-            child: const Text('清空', style: TextStyle(color: Colors.red)),
+            child: Text(l10n.historyClearConfirm, style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
   }
 
-  void _showDeleteDialog(BuildContext context, HistoryItem item) {
+  void _showDeleteDialog(BuildContext context, HistoryItem item, AppLocalizations l10n) {
+    final isImage = item.searchType == 'image';
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('删除记录'),
-        content: Text('确定要删除这条${item.searchType == 'image' ? '拍照识别' : '搜索'}记录吗？'),
+        title: Text(l10n.historyDeleteTitle),
+        content: Text(isImage ? l10n.historyDeleteMessageImage : l10n.historyDeleteMessageText),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.cacheCancel)),
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx);
               final ok = await onDelete?.call(item);
               if (ok == true && context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('已删除'), duration: Duration(seconds: 1)),
+                  SnackBar(content: Text(l10n.historyDeleted), duration: const Duration(seconds: 1)),
                 );
               }
             },
-            child: const Text('删除', style: TextStyle(color: Colors.red)),
+            child: Text(l10n.historyDeleteConfirm, style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
   }
 
-  String _formatTime(String iso) {
+  String _formatTime(String iso, AppLocalizations l10n) {
     try {
-      final dt = DateTime.parse(iso).toLocal();
-      final now = DateTime.now();
-      final diff = now.difference(dt);
-      if (diff.inMinutes < 60) return '${diff.inMinutes}分钟前';
-      if (diff.inHours < 24) return '${diff.inHours}小时前';
-      if (diff.inDays < 7) return '${diff.inDays}天前';
-      return '${dt.month}/${dt.day}';
+      return l10n.formatRelativeTime(DateTime.parse(iso).toLocal());
     } catch (_) {
       return '';
     }

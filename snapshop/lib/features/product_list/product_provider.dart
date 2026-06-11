@@ -67,6 +67,9 @@ class ProductListNotifier extends Notifier<ProductListState> {
         break;
       case 'comprehensive':
         break;
+      case 'rating_desc':
+        products.sort((a, b) => b.rating.compareTo(a.rating));
+        break;
     }
     state = state.copyWith(products: products, sortBy: sortBy);
   }
@@ -96,15 +99,3 @@ class ProductListNotifier extends Notifier<ProductListState> {
 final productListProvider = NotifierProvider<ProductListNotifier, ProductListState>(
   () => ProductListNotifier(),
 );
-
-final productCountProvider = Provider<int>((ref) {
-  return ref.watch(productListProvider.select((state) => state.products.length));
-});
-
-final currentSortProvider = Provider<String?>((ref) {
-  return ref.watch(productListProvider.select((state) => state.sortBy));
-});
-
-final currentFilterProvider = Provider<String?>((ref) {
-  return ref.watch(productListProvider.select((state) => state.filterPlatform));
-});

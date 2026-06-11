@@ -1,10 +1,9 @@
 from fastapi import APIRouter, Depends, Header
-from sqlalchemy import select, func, or_
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_optional_user, get_db
-from app.core.exceptions import AppException
-from app.models import Favorite, BrowseHistory, User
+from app.api.deps import get_db, get_optional_user
+from app.models import BrowseHistory, Favorite, User
 from app.schemas.favorite import UserStatsResponse
 
 router = APIRouter()

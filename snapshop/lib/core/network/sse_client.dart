@@ -7,6 +7,8 @@ class SseClient {
   final String url;
   final Map<String, String> headers;
   final Map<String, String> queryParams;
+  final Duration connectionTimeout;
+  final Duration inactivityTimeout;
   HttpClient? _client;
   StreamSubscription? _subscription;
   bool _closed = false;
@@ -15,6 +17,8 @@ class SseClient {
     required this.url,
     this.headers = const {},
     this.queryParams = const {},
+    this.connectionTimeout = const Duration(seconds: 30),
+    this.inactivityTimeout = const Duration(seconds: 15),
   });
 
   Stream<Map<String, dynamic>> connect() {
@@ -32,8 +36,15 @@ class SseClient {
   Future<void> _connect(StreamController<Map<String, dynamic>> controller) async {
     try {
       _client = HttpClient();
+      _client!.connectionTimeout = connectionTimeout;
+      
       final uri = Uri.parse(url).replace(queryParameters: queryParams);
-      final request = await _client!.getUrl(uri);
+      final request = await _client!.getUrl(uri).timeout(
+        connectionTimeout,
+        onTimeout: () {
+          throw TimeoutException('SSE connection timeout');
+        },
+      );
 
       headers.forEach((key, value) {
         request.headers.set(key, value);
@@ -41,13 +52,33 @@ class SseClient {
       request.headers.set('Accept', 'text/event-stream');
       request.headers.set('Cache-Control', 'no-cache');
 
-      final response = await request.close();
+      final response = await request.close().timeout(
+        connectionTimeout,
+        onTimeout: () {
+          throw TimeoutException('SSE response timeout');
+        },
+      );
 
       String buffer = '';
+      Timer? inactivityTimer;
+      
+      void resetInactivityTimer() {
+        inactivityTimer?.cancel();
+        inactivityTimer = Timer(inactivityTimeout, () {
+          if (!_closed && !controller.isClosed) {
+            debugPrint('[SseClient] Inactivity timeout, closing stream');
+            controller.close();
+            close();
+          }
+        });
+      }
+      
+      resetInactivityTimer();
 
       _subscription = response.transform(utf8.decoder).listen(
         (data) {
           if (_closed) return;
+          resetInactivityTimer();
           buffer += data;
           if (buffer.length > 2 * 1024 * 1024) {
             final lastComplete = buffer.lastIndexOf('\n\n');
@@ -68,7 +99,7 @@ class SseClient {
                 final jsonStr = line.substring(6);
                 try {
                   final parsed = jsonDecode(jsonStr) as Map<String, dynamic>;
-                  if (!_closed) {
+                  if (!_closed && !controller.isClosed) {
                     controller.add(parsed);
                   }
                 } catch (e) {
@@ -79,12 +110,14 @@ class SseClient {
           }
         },
         onError: (error) {
+          inactivityTimer?.cancel();
           if (!_closed && !controller.isClosed) {
             controller.addError(error);
           }
           close();
         },
         onDone: () {
+          inactivityTimer?.cancel();
           if (!_closed && !controller.isClosed) {
             controller.close();
           }

@@ -1,15 +1,13 @@
-import uuid
-import time
-import logging
 import asyncio
-from sqlalchemy import select
+import logging
+import time
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.clients import create_platform_clients, BasePlatformClient
+from app.clients import BasePlatformClient, create_platform_clients
 from app.clients.mock_product_generator import MockProductGenerator
 from app.config import settings
-from app.models import SearchSession, SessionStatus, Product
-from app.core.database import async_session
+from app.models import Product, SearchSession
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +21,8 @@ class SearchService:
         keywords: list[str],
         session: SearchSession | None = None,
         db: AsyncSession | None = None,
+        *,
+        skip_persist: bool = False,
     ) -> list[dict]:
         all_products: list[dict] = []
 
@@ -31,7 +31,7 @@ class SearchService:
             tasks = [
                 asyncio.wait_for(
                     client.search(keywords, page_size=settings.platform_page_size),
-                    timeout=8.0
+                    timeout=3.0
                 ) for client in self._clients
             ]
             t0 = time.time()
@@ -59,7 +59,7 @@ class SearchService:
                     all_products += MockProductGenerator.get_products_by_keywords(keywords, "taobao", count=20)
                     logger.info(f"[SearchService] Mock 生成 {len(all_products)} 条商品")
                 else:
-                    logger.warning(f"[SearchService] 所有平台搜索均报错，Mock 已禁用，返回空结果")
+                    logger.warning("[SearchService] 所有平台搜索均报错，Mock 已禁用，返回空结果")
             elif not all_products:
                 if settings.use_mock_fallback:
                     logger.info(f"[SearchService] 所有平台返回空结果，启用 Mock 兜底 (关键词: {keywords})")
@@ -70,7 +70,7 @@ class SearchService:
                 else:
                     logger.info(f"[SearchService] 所有平台返回空结果，Mock 已禁用 (关键词: {keywords})")
 
-        if db is not None and session is not None:
+        if db is not None and session is not None and not skip_persist:
             await self._persist_products(all_products, session.id, db)
 
         return all_products
@@ -91,7 +91,7 @@ class SearchService:
                     original_price=float(p["original_price"]) if p.get("original_price") is not None else None,
                     platform=p.get("platform", ""),
                     shop_name=p.get("shop_name", ""),
-                    shop_type=p.get("shop_type", "third_party"),
+                    shop_type=p.get("shop_type", "third_party") or "third_party",
                     rating=float(p["rating"]) if p.get("rating") is not None else None,
                     sales_count=int(p["sales_count"]) if p.get("sales_count") is not None else None,
                     image_url=p.get("image_url", ""),

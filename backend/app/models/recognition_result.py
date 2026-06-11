@@ -1,5 +1,6 @@
 import uuid
-from datetime import datetime, timezone
+
+from datetime import UTC, datetime
 
 from sqlalchemy import DateTime, ForeignKey, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -24,6 +25,6 @@ class RecognitionResult(Base):
     attributes: Mapped[dict] = mapped_column(JSON, default=dict)
     raw_response: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     confidence: Mapped[dict] = mapped_column(JSON, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     session = relationship("SearchSession", back_populates="recognition_result")

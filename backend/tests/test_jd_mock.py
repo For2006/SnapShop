@@ -1,5 +1,5 @@
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -14,15 +14,15 @@ def test_jd_mock_database():
     db = JDMockDatabase()
 
     stats = db.get_statistics()
-    print(f"\n数据库统计信息:")
+    print("\n数据库统计信息:")
     print(f"  总商品数: {stats['total_products']}")
     print(f"  京东自营商品数: {stats['self_operated_count']}")
     print(f"  京东物流商品数: {stats['jd_logistics_count']}")
-    print(f"  分类分布:")
-    for cat, count in stats['category_distribution'].items():
+    print("  分类分布:")
+    for cat, count in stats["category_distribution"].items():
         print(f"    - {cat}: {count} 件")
 
-    assert stats['total_products'] == 500, f"期望500件商品，实际{stats['total_products']}件"
+    assert stats["total_products"] == 500, f"期望500件商品，实际{stats['total_products']}件"
     print("\n✓ 商品总数验证通过: 500件")
 
     print("\n测试关键词搜索...")
@@ -39,7 +39,7 @@ def test_jd_mock_database():
     phones = db.get_products_by_category("手机", limit=3)
     print(f"  获取'手机'分类商品 {len(phones)} 件")
     for p in phones[:2]:
-        assert p['category'] == "手机", "分类应该是手机"
+        assert p["category"] == "手机", "分类应该是手机"
     print("✓ 按分类获取验证通过")
 
     print("\n测试商品ID格式...")

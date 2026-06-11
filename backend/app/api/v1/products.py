@@ -1,6 +1,7 @@
 import uuid
+
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
@@ -25,17 +26,17 @@ async def get_products(
         raise SessionNotFoundError(session_id)
 
     session_result = await db.execute(
-        select(SearchSession.id).where(SearchSession.id == str(sid))
+        select(SearchSession.id).where(SearchSession.id == sid)
     )
     if not session_result.scalar_one_or_none():
         raise SessionNotFoundError(session_id)
 
-    query = select(Product).where(Product.session_id == str(sid))
+    query = select(Product).where(Product.session_id == sid)
 
     if platform and platform in ("taobao", "jd", "pdd"):
         query = query.where(Product.platform == platform)
 
-    count_query = select(func.count(Product.id)).where(Product.session_id == str(sid))
+    count_query = select(func.count(Product.id)).where(Product.session_id == sid)
     if platform and platform in ("taobao", "jd", "pdd"):
         count_query = count_query.where(Product.platform == platform)
     total_result = await db.execute(count_query)

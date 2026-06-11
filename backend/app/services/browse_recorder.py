@@ -1,6 +1,4 @@
-from datetime import datetime, timezone
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import BrowseHistory
@@ -15,26 +13,10 @@ async def record_browse_entries(
     if not products:
         return
 
-    today = datetime.now(timezone.utc).date()
-    product_ids = [p.get("id", "") for p in products if p.get("id")]
-    if not product_ids:
-        return
-
-    query = select(BrowseHistory.product_id).where(
-        BrowseHistory.product_id.in_(product_ids),
-        BrowseHistory.view_date == today,
-    )
-    if user_id:
-        query = query.where(BrowseHistory.user_id == user_id)
-    else:
-        query = query.where(BrowseHistory.device_id == device_id)
-    result = await db.execute(query)
-    existing_ids = {row[0] for row in result.all()}
-
     entries: list[BrowseHistory] = []
     for p in products:
         product_id = p.get("id", "")
-        if not product_id or product_id in existing_ids:
+        if not product_id:
             continue
 
         snapshot = {

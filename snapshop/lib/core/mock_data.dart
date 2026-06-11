@@ -55,21 +55,18 @@ class MockAttribute {
   final String key;
   final String label;
   String value;
-  double confidence;
 
   MockAttribute({
     required this.key,
     required this.label,
     required this.value,
-    required this.confidence,
   });
 
-  MockAttribute copyWith({String? value, double? confidence}) {
+  MockAttribute copyWith({String? value}) {
     return MockAttribute(
       key: key,
       label: label,
       value: value ?? this.value,
-      confidence: confidence ?? this.confidence,
     );
   }
 
@@ -78,7 +75,6 @@ class MockAttribute {
       key: json['key']?.toString() ?? '',
       label: json['label']?.toString() ?? '',
       value: json['value']?.toString() ?? '',
-      confidence: (json['confidence'] ?? 0).toDouble(),
     );
   }
 }

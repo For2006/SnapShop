@@ -4,6 +4,7 @@ import time
 from fastapi import Request
 
 from app.config import settings
+from app.core.cache import get_redis_client
 from app.core.exceptions import RateLimitedError
 
 _in_memory_counters: dict[str, list[float]] = {}
@@ -19,8 +20,7 @@ class RateLimiter:
         self.max_requests = max_requests
         self.window_seconds = window_seconds
 
-    async def is_allowed(self, key: str) -> bool:
-        now = time.time()
+    async def _is_allowed_memory(self, key: str, now: float) -> bool:
         async with _lock:
             if key not in _in_memory_counters:
                 _in_memory_counters[key] = []
@@ -33,6 +33,25 @@ class RateLimiter:
             _last_accessed[key] = now
             await self._cleanup_if_needed(now)
             return True
+
+    async def _is_allowed_redis(self, key: str, now: float) -> bool:
+        redis_key = f"rate_limit:{key}:{self.max_requests}:{self.window_seconds}"
+        redis_client = await get_redis_client()
+        pipeline = redis_client.pipeline()
+        await pipeline.zremrangebyscore(redis_key, 0, now - self.window_seconds)
+        await pipeline.zcard(redis_key)
+        await pipeline.zadd(redis_key, {str(now): now})
+        await pipeline.expire(redis_key, self.window_seconds + 1)
+        results = await pipeline.execute()
+        count = results[1]
+        return count < self.max_requests
+
+    async def is_allowed(self, key: str) -> bool:
+        now = time.time()
+        try:
+            return await self._is_allowed_redis(key, now)
+        except Exception:
+            return await self._is_allowed_memory(key, now)
 
     async def _cleanup_if_needed(self, now: float) -> None:
         global _last_cleanup_time

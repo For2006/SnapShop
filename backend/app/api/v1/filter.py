@@ -1,10 +1,18 @@
+from pydantic import BaseModel
+
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db, get_current_device, get_filter_service
+from app.api.deps import get_current_device, get_db, get_filter_service
 from app.core.rate_limit import check_filter_rate_limit
 from app.services.filter_service import FilterService
+
+
+class FilterRequest(BaseModel):
+    session_id: str
+    filter_text: str
+
 
 router = APIRouter()
 
@@ -31,3 +39,12 @@ async def filter_stream(
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@router.post("/filter")
+async def filter_products(
+    body: FilterRequest,
+    service: FilterService = Depends(get_filter_service),
+):
+    result = await service.parse_to_cards(body.filter_text)
+    return result

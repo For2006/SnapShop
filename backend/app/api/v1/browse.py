@@ -1,16 +1,18 @@
 import uuid
-from datetime import datetime, timezone
+
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
-from sqlalchemy import select, func, delete as sa_delete
+from sqlalchemy import delete as sa_delete
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_db, get_optional_user
-from app.core.exceptions import AppException
+from app.api.deps import get_db, get_optional_user
 from app.models import BrowseHistory, User
 from app.schemas.favorite import (
-    BrowseRecordRequest,
     BrowseItemResponse,
     BrowseListResponse,
+    BrowseRecordRequest,
 )
 
 router = APIRouter()
@@ -22,7 +24,7 @@ async def record_browse(
     x_device_id: str = Header(None, alias="X-Device-Id"),
     db: AsyncSession = Depends(get_db),
 ):
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(UTC).date()
 
     if user:
         result = await db.execute(
@@ -44,7 +46,7 @@ async def record_browse(
 
     existing = result.scalar_one_or_none()
     if existing:
-        existing.viewed_at = datetime.now(timezone.utc)
+        existing.viewed_at = datetime.now(UTC)
         await db.commit()
         return {"message": "already recorded"}
 
@@ -119,17 +121,17 @@ async def delete_single_browse(
         raise HTTPException(status_code=400, detail={"error_code": "INVALID_ID", "message": "无效的记录ID"})
 
     if user:
-        stmt = select(BrowseHistory).where(BrowseHistory.id == str(bid), BrowseHistory.user_id == str(user.id))
+        stmt = select(BrowseHistory).where(BrowseHistory.id == bid, BrowseHistory.user_id == user.id)
     else:
         device_id = x_device_id or "anonymous-device"
-        stmt = select(BrowseHistory).where(BrowseHistory.id == str(bid), BrowseHistory.device_id == device_id)
+        stmt = select(BrowseHistory).where(BrowseHistory.id == bid, BrowseHistory.device_id == device_id)
 
     result = await db.execute(stmt)
     record = result.scalar_one_or_none()
     if not record:
         raise HTTPException(status_code=404, detail={"error_code": "NOT_FOUND", "message": "记录不存在"})
 
-    await db.execute(sa_delete(BrowseHistory).where(BrowseHistory.id == str(bid)))
+    await db.execute(sa_delete(BrowseHistory).where(BrowseHistory.id == bid))
     await db.commit()
     return {"ok": True}
 

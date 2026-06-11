@@ -83,6 +83,7 @@ class _ProductCardState extends ConsumerState<ProductCard> {
       final api = ApiClient();
       if (wasFavorited) {
         await api.delete('/favorites/${widget.product.id}');
+        ref.read(settingsProvider.notifier).removeFavoriteId(widget.product.id);
       } else {
         await api.post('/favorites', data: {
           'product_id': widget.product.id,
@@ -101,10 +102,11 @@ class _ProductCardState extends ConsumerState<ProductCard> {
             'tags': widget.product.tags,
           },
         });
+        ref.read(settingsProvider.notifier).addFavoriteId(widget.product.id);
       }
       widget.onFavoriteChanged?.call();
     } on DioException catch (e) {
-      setState(() => _favorited = wasFavorited);
+      if (mounted) setState(() => _favorited = wasFavorited);
       if (mounted) {
         String message = l10n.favoriteFailed;
         if (e.response != null) {
@@ -120,7 +122,7 @@ class _ProductCardState extends ConsumerState<ProductCard> {
         );
       }
     } catch (e) {
-      setState(() => _favorited = wasFavorited);
+      if (mounted) setState(() => _favorited = wasFavorited);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${l10n.favoriteFailed}: $e'), duration: const Duration(seconds: 2)),

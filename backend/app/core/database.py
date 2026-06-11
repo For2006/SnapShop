@@ -1,15 +1,14 @@
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
 from app.config import settings
 
-# 根据数据库类型配置连接池
 engine_kwargs = {
     "echo": settings.debug,
     "pool_pre_ping": True,
 }
 
-# 仅非 SQLite 数据库支持连接池参数
 if "sqlite" not in settings.database_url:
     engine_kwargs.update({
         "pool_size": 10,
@@ -34,14 +33,19 @@ async def get_db():
 
 
 async def init_db():
-    from app.config import settings
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        # 为旧数据库添加 is_mock 列
-        if "sqlite" in settings.database_url:
-            try:
-                await conn.execute(
-                    __import__("sqlalchemy").text("ALTER TABLE products ADD COLUMN is_mock BOOLEAN DEFAULT 0")
-                )
-            except Exception:
-                pass
+        await _ensure_mock_column_exists(conn)
+
+
+async def _ensure_mock_column_exists(conn):
+    if "sqlite" not in settings.database_url:
+        return
+
+    try:
+        result = await conn.execute(text("PRAGMA table_info(products)"))
+        columns = [row[1] for row in result.fetchall()]
+        if "is_mock" not in columns:
+            await conn.execute(text("ALTER TABLE products ADD COLUMN is_mock BOOLEAN DEFAULT 0"))
+    except Exception:
+        pass

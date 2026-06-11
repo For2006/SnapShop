@@ -1,7 +1,7 @@
 from base64 import b64encode
 
-from app.config import settings
 from app.clients._base_ark import BaseArkClient
+from app.config import settings
 
 
 class VLMClientError(Exception):
@@ -46,27 +46,28 @@ class ArkVLMClient(BaseArkClient):
         data_url = f"data:image/jpeg;base64,{image_base64}"
 
         system_prompt = (
-            "你是一个专业的商品图像识别助手。请仔细观察用户提供的商品图片，"
-            "识别并输出商品的属性信息。\n"
-            "请严格按照以下JSON格式返回结果，不要包含任何其他内容：\n"
-            '{"category": "商品类别", "brand": "品牌名称", "color": "颜色", '
-            '"style": "风格", "material": "材质", "shape": "外形", '
-            '"keywords": ["关键词1", "关键词2", "关键词3"], '
-            '"confidence": {"category": 0.0-1.0, "brand": 0.0-1.0, "color": 0.0-1.0, '
-            '"style": 0.0-1.0, "material": 0.0-1.0, "shape": 0.0-1.0}}\n'
-            "如果无法确定某个属性，请将对应字段设为空字符串，confidence设为0.0。"
+            "你是商品图像识别助手。\n"
+            "=== 核心规则 ===\n"
+            "只识别图中最主要、最突出的一个商品，忽略次要物品和背景杂物。\n"
+            "=== 绝对禁止 ===\n"
+            "1. 绝对禁止输出任何 markdown 标记、``` 代码块标记、解释性文字\n"
+            "2. 绝对禁止输出除纯 JSON 之外的任何内容\n"
+            "3. 直接返回 JSON，不要任何前缀后缀\n"
+            "=== 必须输出的纯JSON结构 ===\n"
+            '{"category": "品类", "keywords": ["关键词1","关键词2"], "brand": "", "color": "", "style": ""}\n'
+            "keywords只包含这一个商品的相关关键词。不确定的字段设为空字符串，只返回纯JSON。"
         )
 
         payload = {
             "model": self.endpoint_id,
-            "max_tokens": 300,
+            "max_tokens": 80,
             "temperature": 0.1,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": "请识别这张商品图片的属性。"},
+                        {"type": "text", "text": "识别这张图片中最主要的一个商品。"},
                         {"type": "image_url", "image_url": {"url": data_url}},
                     ],
                 },
@@ -77,22 +78,10 @@ class ArkVLMClient(BaseArkClient):
         return self._validate_recognition_result(result)
 
     def _validate_recognition_result(self, result: dict) -> dict:
-        required_fields = ["category", "brand", "color", "style", "material", "shape", "keywords"]
+        required_fields = ["category", "keywords", "color", "brand", "style"]
         for field in required_fields:
             if field not in result:
                 result[field] = "" if field != "keywords" else []
-
-        if "confidence" not in result:
-            result["confidence"] = {}
-        confidence_fields = ["category", "brand", "color", "style", "material", "shape"]
-        for field in confidence_fields:
-            if field not in result["confidence"]:
-                result["confidence"][field] = 0.0
-            elif not isinstance(result["confidence"][field], (int, float)):
-                try:
-                    result["confidence"][field] = float(result["confidence"][field])
-                except (ValueError, TypeError):
-                    result["confidence"][field] = 0.0
 
         if not isinstance(result.get("keywords"), list):
             result["keywords"] = []

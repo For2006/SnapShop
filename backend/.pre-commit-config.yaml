@@ -1,0 +1,95 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        name: Trim trailing whitespace
+        description: This hook trims trailing whitespace.
+      - id: end-of-file-fixer
+        name: Ensure files end with a newline
+        description: Ensures that a file is either empty, or ends with one newline.
+      - id: check-yaml
+        name: Check YAML files for syntax errors
+        description: This hook checks yaml files for parseable syntax.
+        args: [--allow-multiple-documents]
+      - id: check-toml
+        name: Check TOML files for syntax errors
+        description: This hook checks toml files for parseable syntax.
+      - id: check-added-large-files
+        name: Prevent giant files from being committed
+        description: Checks for added files above a certain filesize limit.
+        args: [--maxkb=500]
+      - id: check-merge-conflict
+        name: Check for files containing merge conflicts
+        description: This hook checks for files that contain merge conflict strings.
+      - id: debug-statements
+        name: Check for debugger imports and breakpoints
+        description: This hook checks for debugger imports and py37+ `breakpoint()` calls in python files.
+      - id: name-tests-test
+        name: Verify test files are named correctly
+        description: This hook verifies that test files have names that match the test naming convention.
+        args: [--pytest]
+      - id: requirements-txt-fixer
+        name: Sort entries in requirements.txt
+        description: This hook sorts entries in requirements.txt.
+      - id: mixed-line-ending
+        name: Replace or check mixed line endings
+        description: This hook replaces or checks mixed line endings.
+        args: [--fix=lf]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.3.5
+    hooks:
+      - id: ruff
+        name: Ruff - Fast Python linter
+        description: Run Ruff linter to check for code quality issues
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+        name: Ruff Format - Python formatter
+        description: Run Ruff formatter to auto-format Python code
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.9.0
+    hooks:
+      - id: mypy
+        name: Mypy - Static type checker
+        description: Run Mypy static type checker for Python
+        additional_dependencies:
+          - pydantic[mypy]>=2.5.0
+          - types-passlib
+          - types-python-jose
+        args: [app/]
+        pass_filenames: false
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        name: isort - Sort Python imports
+        description: Sort Python imports automatically
+        args: ["--profile", "black", "--filter-files"]
+
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v3.15.1
+    hooks:
+      - id: pyupgrade
+        name: pyupgrade - Upgrade Python syntax
+        description: Automatically upgrade Python syntax to modern versions
+        args: [--py311-plus]
+
+  - repo: https://github.com/pycqa/bandit
+    rev: 1.7.8
+    hooks:
+      - id: bandit
+        name: Bandit - Security linter
+        description: Find common security issues in Python code
+        args: [-r, app/]
+        exclude: ^tests/
+
+  - repo: https://github.com/PyCQA/docformatter
+    rev: v1.7.5
+    hooks:
+      - id: docformatter
+        name: docformatter - Format docstrings
+        description: Format Python docstrings automatically
+        args: [--in-place, --wrap-summaries=120, --wrap-descriptions=120]

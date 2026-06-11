@@ -68,20 +68,26 @@ flutter run
 ```
 ├── backend/                # Python FastAPI 后端
 │   ├── app/
-│   │   ├── api/v1/         # REST + SSE 路由 (10 个端点)
+│   │   ├── api/v1/         # REST + SSE 路由 (16 个端点)
 │   │   ├── services/       # 业务逻辑层
 │   │   ├── clients/        # 火山方舟 / 电商平台客户端
 │   │   ├── models/         # SQLAlchemy 数据模型
 │   │   └── schemas/        # Pydantic 请求/响应模型
 │   ├── tests/              # pytest (32 tests)
-│   └── docker-compose.yml  # 服务编排
+│   ├── docker-compose.yml       # 开发环境编排
+│   ├── docker-compose.prod.yml  # 生产环境编排
+│   └── .env.production     # 生产环境变量模板
 ├── snapshop/               # Flutter 前端
 │   └── lib/
 │       ├── config/         # 路由 · 主题 · 国际化
 │       ├── core/           # 网络层 · 工具类
 │       ├── features/       # 功能模块 (首页/识别/商品/筛选/设置/收藏)
 │       └── shared/         # 共用组件
-└── docs/                   # PRD · 架构设计 · 功能结构图
+├── deploy/                 # 部署配置与脚本
+│   ├── nginx/              # Nginx 反向代理配置
+│   ├── setup.sh            # ECS 环境初始化脚本
+│   └── deploy.sh           # 一键部署脚本
+└── docs/                   # PRD · 架构设计 · 功能结构图 · Mock数据说明
 ```
 
 ## 核心功能
@@ -95,9 +101,32 @@ flutter run
 - **主题 & 国际化** — 浅色/深色自适应，中英文切换
 - **字号调节** — 支持小/标准/大/超大四档字体
 
+## 部署
+
+生产环境支持一键部署至阿里云 ECS：
+
+```bash
+# 1. 上传项目到服务器
+scp -r . root@YOUR_SERVER_IP:/opt/snapshop
+
+# 2. SSH 登录，初始化环境
+ssh root@YOUR_SERVER_IP
+cd /opt/snapshop/backend && bash ../deploy/setup.sh
+
+# 3. 配置并启动
+cp .env.production .env && nano .env
+bash ../deploy/deploy.sh
+```
+
+详细部署说明见 [START_HERE.md](START_HERE.md) 第 7 章。
+
 ## 文档
 
 - [产品需求文档 (PRD)](docs/PRD.md)
 - [架构设计文档](docs/architecture.md)
+- [API 说明文档](docs/api.md)
 - [功能结构图](docs/功能结构图.md)
-- [开发任务跟踪](docs/tasks.md)
+- [Mock 模拟数据说明](docs/mock-data.md)
+- [项目分工说明](docs/team-division.md)
+- [AI 使用总结](docs/ai-usage-summary.md)
+- [标准测试用例](docs/test-cases.md)

@@ -7,6 +7,7 @@ import time
 import httpx
 
 from app.config import settings
+from app.core.json_utils import robust_parse_json
 
 logger = logging.getLogger(__name__)
 
@@ -23,17 +24,17 @@ class BaseArkClient:
         endpoint_id: str = "",
         base_url: str = "",
     ):
-        self.api_key = api_key or settings.ark_api_key
+        self.api_key = api_key or settings.ark_api_key.get_secret_value()
         self.endpoint_id = endpoint_id
         self.base_url = base_url or settings.ark_base_url
         self._client: httpx.AsyncClient | None = None
-        self._max_retries = 1
-        self._retry_delays = [1.0]
+        self._max_retries = 2
+        self._retry_delays = [1.0, 2.0]
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
             self._client = httpx.AsyncClient(
-                timeout=httpx.Timeout(60.0, connect=10.0),  # VLM识别大图需要更长时间
+                timeout=httpx.Timeout(60.0, connect=15.0),
                 headers={
                     "Content-Type": "application/json",
                     "Authorization": f"Bearer {self.api_key}",
@@ -92,7 +93,7 @@ class BaseArkClient:
                     await asyncio.sleep(delay)
                     continue
                 raise self.ClientError(f"Network error after {self._max_retries} retries: {e}") from e
-            except (json.JSONDecodeError, KeyError, IndexError, TypeError, ValueError, asyncio.TimeoutError) as e:
+            except (TimeoutError, json.JSONDecodeError, KeyError, IndexError, TypeError, ValueError) as e:
                 last_exception = e
                 logger.warning(f"[Ark] 可重试错误 attempt={attempt}: {type(e).__name__}: {e}")
                 if attempt < self._max_retries:
@@ -107,32 +108,10 @@ class BaseArkClient:
 
     @staticmethod
     def _parse_json_response(response_text: str) -> dict:
-        text = response_text.strip()
-
-        json_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
-        if json_match:
-            text = json_match.group(1).strip()
-
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError:
-            pass
-
-        brace_start = text.find("{")
-        brace_end = text.rfind("}")
-        bracket_start = text.find("[")
-        bracket_end = text.rfind("]")
-
-        if bracket_start != -1 and bracket_end != -1 and bracket_end > bracket_start:
-            try:
-                return json.loads(text[bracket_start:bracket_end + 1])
-            except json.JSONDecodeError:
-                pass
-
-        if brace_start != -1 and brace_end != -1 and brace_end > brace_start:
-            try:
-                return json.loads(text[brace_start:brace_end + 1])
-            except json.JSONDecodeError:
-                pass
-
-        return {"raw_text": response_text, "error": "Failed to parse JSON"}
+        fallback_result = {"raw_text": response_text, "error": "Failed to parse JSON"}
+        result = robust_parse_json(response_text, fallback_result)
+        if isinstance(result, dict):
+            return result
+        if isinstance(result, list):
+            return {"_list": result, "raw_text": response_text}
+        return fallback_result

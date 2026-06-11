@@ -1,5 +1,6 @@
 import uuid
-from datetime import datetime, timezone
+
+from datetime import UTC, datetime
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -21,6 +22,6 @@ class FilterAction(Base):
     filter_text: Mapped[str | None] = mapped_column(String(500), nullable=True)
     params: Mapped[dict] = mapped_column(JSON, default=dict)
     result_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     session = relationship("SearchSession", back_populates="filter_actions")

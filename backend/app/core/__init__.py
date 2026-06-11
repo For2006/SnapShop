@@ -9,11 +9,11 @@ from app.core.exceptions import (
 )
 
 __all__ = [
-    "AppException",
-    "RecognitionFailedError",
-    "InvalidImageError",
-    "ImageTooLargeError",
-    "SessionNotFoundError",
-    "RateLimitedError",
     "AIServiceUnavailableError",
+    "AppException",
+    "ImageTooLargeError",
+    "InvalidImageError",
+    "RateLimitedError",
+    "RecognitionFailedError",
+    "SessionNotFoundError",
 ]

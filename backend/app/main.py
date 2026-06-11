@@ -1,6 +1,7 @@
 import logging
 import time
 import uuid
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -14,12 +15,12 @@ logger = logging.getLogger("snapshop")
 
 def setup_structured_logging():
     logger.setLevel(logging.INFO)
-    
+
     for handler in logger.handlers[:]:
         logger.removeHandler(handler)
-    
+
     handler = logging.StreamHandler()
-    
+
     try:
         from pythonjsonlogger import jsonlogger
         formatter = jsonlogger.JsonFormatter(
@@ -28,17 +29,17 @@ def setup_structured_logging():
     except ImportError:
         class SimpleFormatter(logging.Formatter):
             def format(self, record):
-                record.__dict__.setdefault('request_id', '-')
-                record.__dict__.setdefault('method', '-')
-                record.__dict__.setdefault('path', '-')
-                record.__dict__.setdefault('process_time', '-')
-                record.__dict__.setdefault('status_code', '-')
-                record.__dict__.setdefault('exception', '-')
+                record.__dict__.setdefault("request_id", "-")
+                record.__dict__.setdefault("method", "-")
+                record.__dict__.setdefault("path", "-")
+                record.__dict__.setdefault("process_time", "-")
+                record.__dict__.setdefault("status_code", "-")
+                record.__dict__.setdefault("exception", "-")
                 return super().format(record)
         formatter = SimpleFormatter(
             "%(asctime)s - %(levelname)s - %(name)s - %(message)s - req_id=%(request_id)s - %(method)s %(path)s - time=%(process_time)s - status=%(status_code)s - err=%(exception)s"
         )
-    
+
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
@@ -47,19 +48,19 @@ setup_structured_logging()
 
 from app.api.v1 import (
     auth,
+    browse,
+    favorites,
+    filter,
+    history,
+    products,
     recognize,
     search,
-    products,
-    filter,
-    suggestions,
-    history,
-    favorites,
-    browse,
     stats,
+    suggestions,
 )
 from app.config import settings
+from app.core.cache import close_redis_client, get_redis_client
 from app.core.database import init_db
-from app.core.cache import get_redis_client, close_redis_client
 from app.core.exceptions import AppException
 from app.schemas.common import ErrorResponse
 
@@ -67,16 +68,10 @@ from app.schemas.common import ErrorResponse
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
-    await get_redis_client()  # Initialize Redis client
-    # 可选地初始化 Prometheus
-    try:
-        from app.core.metrics import instrumentator
-        instrumentator.instrument(app)
-    except ImportError:
-        pass
+    await get_redis_client()
     yield
     await _cleanup_clients()
-    await close_redis_client()  # Close Redis client
+    await close_redis_client()
 
 
 async def _cleanup_clients():
@@ -104,9 +99,10 @@ try:
 except ImportError:
     pass
 
+cors_origins = ["*"] if settings.debug else settings.allowed_origins_list
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_origins,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -120,16 +116,16 @@ app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=6)
 async def structured_logging_middleware(request: Request, call_next):
     request_id = str(uuid.uuid4())
     start_time = time.time()
-    
+
     request.state.request_id = request_id
-    
+
     try:
         response = await call_next(request)
         process_time = time.time() - start_time
-        
+
         response.headers["X-Request-ID"] = request_id
         response.headers["X-Process-Time"] = str(process_time)
-        
+
         log_extra = {
             "request_id": request_id,
             "method": request.method,
@@ -138,12 +134,12 @@ async def structured_logging_middleware(request: Request, call_next):
             "status_code": response.status_code,
             "exception": None,
         }
-        
+
         logger.info(
             "Request processed",
             extra=log_extra
         )
-        
+
         return response
     except Exception as e:
         process_time = time.time() - start_time
@@ -166,7 +162,8 @@ async def structured_logging_middleware(request: Request, call_next):
 async def security_headers_middleware(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    if not settings.debug:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     response.headers["Content-Security-Policy"] = "frame-ancestors 'none'"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     return response
@@ -183,8 +180,7 @@ async def global_exception_handler(request, exc):
         "status_code": 500,
         "exception": str(exc),
     }
-    if settings.debug:
-        logger.exception("Internal error", extra=log_extra)
+    logger.error("Internal server error", extra=log_extra, exc_info=True)
     return JSONResponse(
         status_code=500,
         content={
@@ -240,7 +236,7 @@ async def app_exception_handler(request: Request, exc: AppException):
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     request_id = getattr(request.state, "request_id", "unknown")
-    detail = str(exc.errors()) if settings.debug else None
+    detail = str(exc.errors())
     log_extra = {
         "request_id": request_id,
         "method": request.method,

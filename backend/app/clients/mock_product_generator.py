@@ -1,10 +1,11 @@
 import random
+
 from typing import Any
 
 
 class MockProductGenerator:
     """强大的 Mock 商品生成器 - 京东、拼多多、淘宝各 500 条"""
-    
+
     # 完整商品分类体系
     CATEGORIES = [
         {
@@ -204,10 +205,10 @@ class MockProductGenerator:
         brand = random.choice(category["brands"])
         base_name = random.choice(category["base_names"])
         name = base_name.format(brand=brand)
-        
+
         min_p, max_p = category["price_range"]
         base_price = random.uniform(min_p, max_p)
-        
+
         if platform == "jd":
             product_id = f"100{random.randint(1000000000, 9999999999)}"
             product_url = f"https://item.jd.com/{product_id}.html"
@@ -223,7 +224,7 @@ class MockProductGenerator:
             product_url = f"https://mobile.yangkeduo.com/goods.html?goods_id={product_id}"
             tags = random.sample(cls.PDD_TAGS, random.randint(2, 4))
             shop_type = "official" if random.random() > 0.5 else "third_party"
-        
+
         return {
             "id": f"{platform}_{category['name']}_{index}_{random.randint(100000, 999999)}",
             "name": name,
@@ -250,11 +251,11 @@ class MockProductGenerator:
         products = []
         category_weights = [len(cat["keywords"]) for cat in cls.CATEGORIES]
         total_weight = sum(category_weights)
-        
+
         for i in range(count):
             category = random.choices(cls.CATEGORIES, weights=category_weights, k=1)[0]
             products.append(cls._generate_product(category, "jd", i))
-        
+
         return products
 
     @classmethod
@@ -263,11 +264,11 @@ class MockProductGenerator:
         products = []
         category_weights = [len(cat["keywords"]) for cat in cls.CATEGORIES]
         total_weight = sum(category_weights)
-        
+
         for i in range(count):
             category = random.choices(cls.CATEGORIES, weights=category_weights, k=1)[0]
             products.append(cls._generate_product(category, "pdd", i))
-        
+
         return products
 
     @classmethod
@@ -287,7 +288,7 @@ class MockProductGenerator:
     def get_products_by_keywords(cls, keywords: list[str], platform: str, count: int = 20) -> list[dict[str, Any]]:
         """根据关键词获取相关商品"""
         matched_category = None
-        
+
         all_text = " ".join(keywords).lower()
         for category in cls.CATEGORIES:
             for kw in category["keywords"]:
@@ -296,12 +297,12 @@ class MockProductGenerator:
                     break
             if matched_category:
                 break
-        
+
         if not matched_category:
             matched_category = random.choice(cls.CATEGORIES)
-        
+
         results = []
         for i in range(count):
             results.append(cls._generate_product(matched_category, platform, i))
-        
+
         return results

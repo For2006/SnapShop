@@ -111,7 +111,9 @@ class AppLocalizations {
     // ── Sort bar ──
     'sort_comprehensive': {'zh': '综合推荐', 'en': 'Recommended'},
     'sort_price_asc': {'zh': '价格从低到高', 'en': 'Price: Low to High'},
+    'sort_price_desc': {'zh': '价格从高到低', 'en': 'Price: High to Low'},
     'sort_sales': {'zh': '销量优先', 'en': 'Best Selling'},
+    'sort_rating': {'zh': '好评率优先', 'en': 'Top Rated'},
 
     // ── Price summary bar ──
     'price_all_platforms': {'zh': '全网 ', 'en': 'All platforms '},
@@ -144,6 +146,7 @@ class AppLocalizations {
     'profile_bio': {'zh': '简介', 'en': 'Bio'},
     'profile_bio_hint': {'zh': '介绍一下自己...', 'en': 'Tell us about yourself...'},
     'profile_save': {'zh': '保存', 'en': 'Save'},
+    'profile_save_success': {'zh': '个人信息已保存', 'en': 'Profile saved'},
     'profile_avatar_hint': {'zh': '点击更换头像', 'en': 'Tap to change avatar'},
 
     // ── Login page ──
@@ -157,6 +160,17 @@ class AppLocalizations {
     'register_button': {'zh': '注册', 'en': 'Register'},
     'login_have_account': {'zh': '已有账号？', 'en': 'Already have an account? '},
     'login_back': {'zh': '返回登录', 'en': 'Login'},
+    'login_phone_error': {'zh': '请输入11位手机号', 'en': 'Please enter an 11-digit phone number'},
+    'login_sms_sent_debug': {'zh': '验证码已发送（开发环境可从后端日志查看）', 'en': 'Code sent (check backend log in dev mode)'},
+    'login_send_sms_failed': {'zh': '发送验证码失败', 'en': 'Failed to send SMS code'},
+    'login_sms_code_error': {'zh': '请输入6位验证码', 'en': 'Please enter the 6-digit code'},
+    'login_password_tab': {'zh': '密码登录', 'en': 'Password Login'},
+    'login_sms_tab': {'zh': '短信验证码登录', 'en': 'SMS Login'},
+    'login_sms_code_hint': {'zh': '请输入验证码', 'en': 'Enter verification code'},
+    'login_get_code': {'zh': '获取验证码', 'en': 'Get Code'},
+    'login_sms_button': {'zh': '验证码登录', 'en': 'SMS Login'},
+    'register_password_confirm_hint': {'zh': '请再次输入密码', 'en': 'Confirm password'},
+    'register_password_mismatch': {'zh': '两次输入的密码不一致', 'en': 'Passwords do not match'},
 
     // ── Logout ──
     'logout_title': {'zh': '退出登录', 'en': 'Log Out'},
@@ -180,6 +194,14 @@ class AppLocalizations {
     'filter_network_error': {
       'zh': '筛选失败，请检查网络后重试',
       'en': 'Filter failed, check your network and try again'
+    },
+    'filter_empty_result': {
+      'zh': '没有符合条件的商品，试试放宽筛选条件',
+      'en': 'No products match, try relaxing your filters'
+    },
+    'filter_clear_all': {
+      'zh': '清空',
+      'en': 'Clear all'
     },
     'login_failed': {'zh': '登录失败', 'en': 'Login failed'},
     'register_failed': {'zh': '注册失败', 'en': 'Registration failed'},
@@ -211,6 +233,7 @@ class AppLocalizations {
     'ok_label': {'zh': '确定', 'en': 'OK'},
     'favorite_failed': {'zh': '收藏操作失败，请重试', 'en': 'Favorite operation failed, please retry'},
     'favorite_failed_network': {'zh': '无法连接服务器，请检查网络', 'en': 'Cannot connect to server, check network'},
+    'login_to_view_favorites': {'zh': '登录后可查看收藏', 'en': 'Log in to view favorites'},
 
     // Product detail
     'official_store': {'zh': '官方旗舰店', 'en': 'Official Store'},
@@ -227,6 +250,11 @@ class AppLocalizations {
     'x_minutes_ago': {'zh': '{}分钟前', 'en': '{}m ago'},
     'x_hours_ago': {'zh': '{}小时前', 'en': '{}h ago'},
     'x_days_ago': {'zh': '{}天前', 'en': '{}d ago'},
+    'time_just_now': {'zh': '刚刚', 'en': 'Just now'},
+    'history_deleted': {'zh': '已删除', 'en': 'Deleted'},
+    'browse_delete_message': {'zh': '确定要删除这条浏览记录吗？', 'en': 'Delete this browsing record?'},
+    'history_type_photo': {'zh': '拍照', 'en': 'Photo'},
+    'history_type_search': {'zh': '搜索', 'en': 'Search'},
   };
 
   String get(String key) {
@@ -301,6 +329,7 @@ class AppLocalizations {
   String get profileBio => get('profile_bio');
   String get profileBioHint => get('profile_bio_hint');
   String get profileSave => get('profile_save');
+  String get profileSaveSuccess => get('profile_save_success');
   String get profileAvatarHint => get('profile_avatar_hint');
 
   String get loginTitle => get('login_title');
@@ -313,6 +342,17 @@ class AppLocalizations {
   String get registerButton => get('register_button');
   String get loginHaveAccount => get('login_have_account');
   String get loginBack => get('login_back');
+  String get loginPhoneError => get('login_phone_error');
+  String get loginSmsSentDebug => get('login_sms_sent_debug');
+  String get loginSendSmsFailed => get('login_send_sms_failed');
+  String get loginSmsCodeError => get('login_sms_code_error');
+  String get loginPasswordTab => get('login_password_tab');
+  String get loginSmsTab => get('login_sms_tab');
+  String get loginSmsCodeHint => get('login_sms_code_hint');
+  String get loginGetCode => get('login_get_code');
+  String get loginSmsButton => get('login_sms_button');
+  String get registerPasswordConfirmHint => get('register_password_confirm_hint');
+  String get registerPasswordMismatch => get('register_password_mismatch');
 
   String get logoutTitle => get('logout_title');
   String get logoutMessage => get('logout_message');
@@ -324,6 +364,8 @@ class AppLocalizations {
   String get searchFailed => get('search_failed');
   String get filterNoSession => get('filter_no_session');
   String get filterNetworkError => get('filter_network_error');
+  String get filterEmptyResult => get('filter_empty_result');
+  String get filterClearAll => get('filter_clear_all');
   String get loginFailed => get('login_failed');
   String get registerFailed => get('register_failed');
   String get noSearchHistory => get('no_search_history');
@@ -382,7 +424,9 @@ class AppLocalizations {
   // Sort
   String get sortComprehensive => get('sort_comprehensive');
   String get sortPriceAsc => get('sort_price_asc');
+  String get sortPriceDesc => get('sort_price_desc');
   String get sortSales => get('sort_sales');
+  String get sortRating => get('sort_rating');
 
   // Price
   String get priceAllPlatforms => get('price_all_platforms');
@@ -411,12 +455,27 @@ class AppLocalizations {
   String get salesLabel => get('sales_label');
 
   // Time formatting
+  String get timeJustNow => get('time_just_now');
+  String get loginToViewFavorites => get('login_to_view_favorites');
+  String get historyDeleted => get('history_deleted');
+  String get browseDeleteMessage => get('browse_delete_message');
+  String get historyTypePhoto => get('history_type_photo');
+  String get historyTypeSearch => get('history_type_search');
+
+  String xMinutesAgo(int n) => get('x_minutes_ago').replaceFirst('{}', n.toString());
+  String xHoursAgo(int n) => get('x_hours_ago').replaceFirst('{}', n.toString());
+  String xDaysAgo(int n) => get('x_days_ago').replaceFirst('{}', n.toString());
+
   String formatRelativeTime(DateTime dt) {
     final now = DateTime.now();
     final diff = now.difference(dt);
     final templateMin = get('x_minutes_ago');
     final templateHour = get('x_hours_ago');
     final templateDay = get('x_days_ago');
+    if (diff.inMinutes < 1) {
+      final isZh = locale.languageCode == 'zh';
+      return isZh ? '刚刚' : 'Just now';
+    }
     if (diff.inMinutes < 60) return templateMin.replaceFirst('{}', diff.inMinutes.toString());
     if (diff.inHours < 24) return templateHour.replaceFirst('{}', diff.inHours.toString());
     if (diff.inDays < 7) return templateDay.replaceFirst('{}', diff.inDays.toString());

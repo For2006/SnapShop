@@ -1,7 +1,8 @@
 import uuid
-from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, JSON, String, Uuid
+from datetime import UTC, datetime
+
+from sqlalchemy import JSON, DateTime, ForeignKey, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -18,4 +19,4 @@ class Favorite(Base):
     )
     product_id: Mapped[str] = mapped_column(String(200), index=True, nullable=False)
     product_snapshot: Mapped[dict] = mapped_column(JSON, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC), index=True)

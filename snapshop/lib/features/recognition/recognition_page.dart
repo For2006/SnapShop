@@ -17,6 +17,7 @@ import '../product_list/product_detail_page.dart';
 import '../product_list/price_summary_bar.dart';
 import '../product_list/sort_bar.dart';
 import '../product_list/product_provider.dart';
+import '../settings/settings_provider.dart';
 import 'widgets/attribute_chip.dart';
 import 'attribute_edit_sheet.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
@@ -40,7 +41,10 @@ class _RecognitionPageState extends ConsumerState<RecognitionPage> {
   }
 
   void _navigateToProductDetail(MockProduct product) {
-    context.push('/product-detail', extra: product);
+    context.push('/product-detail', extra: {
+      'product': product,
+      'initialIsFavorited': ref.read(settingsProvider).favoriteProductIds.contains(product.id),
+    });
   }
 
   void _showAttributeEditSheet(MockAttribute attr) {
@@ -86,18 +90,35 @@ class _RecognitionPageState extends ConsumerState<RecognitionPage> {
               .toList() ??
           [];
       if (products.isNotEmpty) {
+        notifier.updateProductsAfterAttributeEdit(products);
         ref.read(productListProvider.notifier).updateProducts(products);
+      }
+      final updatedAttrs = (data['updated_attributes'] as List<dynamic>?);
+      if (updatedAttrs != null && updatedAttrs.isNotEmpty) {
+        notifier.updateRecognitionAttributes(updatedAttrs);
       }
     } catch (e) {
       debugPrint('[RecognitionPage] _updateAttribute 失败: $e');
     }
   }
 
-  Future<void> _onSuggestionTap(MockSuggestion suggestion) async {
+  Future<void> _onSuggestionTap(MockSuggestion? suggestion) async {
     final notifier = ref.read(homeProvider.notifier);
     final productNotifier = ref.read(productListProvider.notifier);
 
-    // 1. 立即本地执行，给用户即时反馈
+    if (suggestion == null) {
+      notifier.clearFilters();
+      productNotifier.updateProducts(ref.read(homeProvider).products);
+      if (mounted) {
+        setState(() => _activeSort = SortOption.comprehensive);
+      }
+      return;
+    }
+
+    if (mounted) {
+      setState(() => _activeSort = SortOption.comprehensive);
+    }
+
     final currentProducts = ref.read(productListProvider).products.isNotEmpty
         ? ref.read(productListProvider).products
         : ref.read(homeProvider).products;
@@ -121,7 +142,6 @@ class _RecognitionPageState extends ConsumerState<RecognitionPage> {
     }
     productNotifier.updateProducts(ref.read(homeProvider).products);
 
-    // 2. 后台尝试服务端筛选（成功后覆盖本地结果）
     final sessionId = ref.read(homeProvider).sessionId;
     if (sessionId != null) {
       try {
@@ -163,8 +183,12 @@ class _RecognitionPageState extends ConsumerState<RecognitionPage> {
   void _onSortChanged(SortOption sortKey) {
     setState(() => _activeSort = sortKey);
 
+    final homeNotifier = ref.read(homeProvider.notifier);
     final productNotifier = ref.read(productListProvider.notifier);
-    // 首次排序时，从 homeProvider 同步商品列表
+
+    homeNotifier.clearFilters();
+    productNotifier.updateProducts(ref.read(homeProvider).products);
+
     if (ref.read(productListProvider).products.isEmpty) {
       productNotifier.updateProducts(ref.read(homeProvider).products);
     }
@@ -174,8 +198,14 @@ class _RecognitionPageState extends ConsumerState<RecognitionPage> {
       case SortOption.priceAsc:
         sortBy = 'price_asc';
         break;
+      case SortOption.priceDesc:
+        sortBy = 'price_desc';
+        break;
       case SortOption.sales:
         sortBy = 'sales';
+        break;
+      case SortOption.rating:
+        sortBy = 'rating_desc';
         break;
       default:
         sortBy = 'comprehensive';
@@ -203,41 +233,44 @@ class _RecognitionPageState extends ConsumerState<RecognitionPage> {
       return;
     }
 
+    setState(() => _activeSort = SortOption.comprehensive);
+
+    final currentProducts = ref.read(productListProvider).products.isNotEmpty
+        ? ref.read(productListProvider).products
+        : ref.read(homeProvider).products;
+
     ref.read(filterProvider.notifier).setFilterText(text);
+    ref.read(filterProvider.notifier).setOriginalProducts(currentProducts);
 
     ref.read(filterProvider.notifier).submitFilter(
       sessionId: sessionId,
       onProductsUpdated: (products) {
         ref.read(productListProvider.notifier).updateProducts(products);
       },
-    ).then((success) {
-      if (!success) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: Text(l10n.filterNetworkError),
-            content: Text(l10n.favoriteFailedNetwork),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(l10n.okLabel),
-              ),
-            ],
-          ),
-        );
-      }
-    });
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // 新搜索开始时清空 productListProvider，避免显示上一次的旧结果
     ref.listen(homeProvider, (prev, next) {
       if (prev != null &&
           prev.recognitionStatus != RecognitionStatus.recognizing &&
           next.recognitionStatus == RecognitionStatus.recognizing) {
         ref.read(productListProvider.notifier).updateProducts([]);
         _activeSort = SortOption.comprehensive;
+      }
+      if (prev != null &&
+          prev.recognitionStatus == RecognitionStatus.recognizing &&
+          next.recognitionStatus == RecognitionStatus.completed &&
+          next.products.isNotEmpty) {
+        ref.read(productListProvider.notifier).updateProducts(next.products);
+        ref.read(productListProvider.notifier).sortProducts('comprehensive');
+      }
+      if (prev != null &&
+          prev.recognitionStatus == RecognitionStatus.completed &&
+          next.recognitionStatus == RecognitionStatus.completed &&
+          prev.products.isEmpty && next.products.isNotEmpty) {
+        ref.read(productListProvider.notifier).updateProducts(next.products);
       }
     });
 
@@ -281,7 +314,6 @@ class _RecognitionPageState extends ConsumerState<RecognitionPage> {
     }
 
     final recognitionResult = homeState.recognitionResult;
-    // 1. API 返回的商品优先  2. API 无返回则从本地 mock 库按分类筛选  3. 都没有则空
     var products = productState.products.isNotEmpty
         ? productState.products
         : homeState.products;
@@ -309,14 +341,24 @@ class _RecognitionPageState extends ConsumerState<RecognitionPage> {
                     child: _buildSuggestions(recognitionResult)),
               ],
               SliverToBoxAdapter(child: _buildSortSection()),
-              SliverToBoxAdapter(
-                child: PriceSummaryBar(products: products),
+              if (filterState.filterCards.isNotEmpty)
+                SliverToBoxAdapter(child: _buildFilterCardsSection()),
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _PriceSummaryHeaderDelegate(
+                  products: products,
+                  onPlatformTap: (platform) {
+                    ref.read(homeProvider.notifier).filterProducts(platform: platform);
+                  },
+                ),
               ),
               if (products.isEmpty)
                 SliverFillRemaining(
                   child: Center(
                     child: Text(
-                      l10n.recognitionEmpty,
+                      filterState.filterCards.isNotEmpty
+                          ? l10n.filterEmptyResult
+                          : l10n.recognitionEmpty,
                       style: TextStyle(
                           color: context.colors.textTertiary,
                           fontSize: context.fs(14)),
@@ -335,22 +377,83 @@ class _RecognitionPageState extends ConsumerState<RecognitionPage> {
                       final product = products[index];
                       return ProductCard(
                         product: product,
+                        isFavorited: ref.read(settingsProvider).favoriteProductIds.contains(product.id),
                         onTap: () => _navigateToProductDetail(product),
+                        onFavoriteChanged: () => ref.read(settingsProvider.notifier).refreshStats(),
                       );
                     },
                   ),
                 ),
-              const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
+              const SliverPadding(padding: EdgeInsets.only(bottom: 140)),
             ],
           ),
           Positioned(
             bottom: 0,
             left: 0,
             right: 0,
-            child: FilterInputBar(
-              controller: _filterController,
-              isLoading: filterState.isFiltering,
-              onSubmit: _onFilterSubmit,
+            child: Material(
+              color: Colors.transparent,
+              child: FilterInputBar(
+                controller: _filterController,
+                isLoading: filterState.isFiltering,
+                onSubmit: _onFilterSubmit,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterCardsSection() {
+    final filterNotifier = ref.read(filterProvider.notifier);
+    final cards = ref.watch(filterProvider).filterCards;
+
+    return Container(
+      color: context.colors.surface,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 6,
+        children: [
+          ...cards.map((card) => GestureDetector(
+            onTap: () {
+              ref.read(filterProvider.notifier).removeFilter(card.id);
+              final base = ref.read(filterProvider).originalProducts ?? [];
+              final newFilters = Map<String, dynamic>.from(ref.read(filterProvider).activeFilters);
+              newFilters.remove(card.id);
+              final filtered = FilterNotifier.applyFilters(newFilters, base);
+              ref.read(productListProvider.notifier).updateProducts(filtered);
+            },
+            child: Chip(
+              label: Text(card.label, style: TextStyle(fontSize: context.fs(12))),
+              deleteIcon: const Icon(Icons.close, size: 16),
+              onDeleted: () {
+                ref.read(filterProvider.notifier).removeFilter(card.id);
+                final base = ref.read(filterProvider).originalProducts ?? [];
+                final newFilters = Map<String, dynamic>.from(ref.read(filterProvider).activeFilters);
+                newFilters.remove(card.id);
+                final filtered = FilterNotifier.applyFilters(newFilters, base);
+                ref.read(productListProvider.notifier).updateProducts(filtered);
+              },
+              backgroundColor: context.colors.secondaryBg,
+              side: BorderSide(color: context.colors.divider),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            ),
+          )),
+          GestureDetector(
+            onTap: () {
+              ref.read(filterProvider.notifier).clearAllFilters(
+                onRestore: (originals) {
+                  ref.read(productListProvider.notifier).updateProducts(originals);
+                },
+              );
+            },
+            child: Chip(
+              label: Text(AppLocalizations.of(context).filterClearAll, style: TextStyle(fontSize: context.fs(12), color: context.colors.textSecondary)),
+              backgroundColor: Colors.transparent,
+              side: BorderSide(color: context.colors.divider),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             ),
           ),
         ],
@@ -418,5 +521,36 @@ class _RecognitionPageState extends ConsumerState<RecognitionPage> {
         onSortChanged: _onSortChanged,
       ),
     );
+  }
+}
+
+class _PriceSummaryHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final List<MockProduct> products;
+  final void Function(String platform)? onPlatformTap;
+
+  _PriceSummaryHeaderDelegate({required this.products, this.onPlatformTap});
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return PriceSummaryBar(products: products, onPlatformTap: onPlatformTap);
+  }
+
+  @override
+  double get maxExtent {
+    if (products.isEmpty) return 0.0;
+    final platforms = <String>{};
+    for (final p in products) {
+      platforms.add(p.platform);
+    }
+    return platforms.length > 1 ? 108.0 : 54.0;
+  }
+
+  @override
+  double get minExtent => maxExtent;
+
+  @override
+  bool shouldRebuild(covariant _PriceSummaryHeaderDelegate oldDelegate) {
+    return products != oldDelegate.products ||
+        onPlatformTap != oldDelegate.onPlatformTap;
   }
 }

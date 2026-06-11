@@ -5,9 +5,12 @@ import 'package:dio/dio.dart';
 import '../../config/theme_context.dart';
 import '../../config/app_colors.dart';
 import '../../core/network/api_client.dart';
+import '../../core/mock_data.dart';
 import '../../shared/widgets/platform_badge.dart';
 import '../../shared/widgets/optimized_cached_image.dart';
 import '../settings/settings_provider.dart';
+import '../../core/cache/api_cache.dart';
+import '../../config/l10n/app_localizations.dart';
 
 class FavoritesTab extends ConsumerStatefulWidget {
   const FavoritesTab({super.key});
@@ -32,10 +35,16 @@ class _FavoritesTabState extends ConsumerState<FavoritesTab> {
       if (mounted) setState(() => _loading = false);
       return;
     }
-    setState(() => _loading = true);
+
+    final cache = ApiCache();
+    final cached = cache.get<List<Map<String, dynamic>>>('favorites');
+    if (cached != null) {
+      if (mounted) setState(() { _items = cached; _loading = false; });
+    }
+
     try {
       final api = ApiClient();
-      final response = await api.get('/favorites', queryParameters: {'page': 1, 'size': 50});
+      final response = await api.get('/favorites', queryParameters: {'page': 1, 'size': 20});
       final raw = response.data;
       if (raw is! Map<String, dynamic>) {
         debugPrint('[FavoritesTab] 响应格式异常: ${raw.runtimeType}');
@@ -45,13 +54,14 @@ class _FavoritesTabState extends ConsumerState<FavoritesTab> {
       final data = raw;
       final list = data['items'];
       final items = list is List ? list.cast<Map<String, dynamic>>() : <Map<String, dynamic>>[];
+      cache.set('favorites', items);
       if (mounted) setState(() { _items = items; _loading = false; });
     } on DioException catch (e) {
       debugPrint('[FavoritesTab] _load Dio错误: $e');
-      if (mounted) setState(() => _loading = false);
+      if (mounted && _items.isEmpty) setState(() => _loading = false);
     } catch (e) {
       debugPrint('[FavoritesTab] _load 失败: $e');
-      if (mounted) setState(() => _loading = false);
+      if (mounted && _items.isEmpty) setState(() => _loading = false);
     }
   }
 
@@ -59,7 +69,9 @@ class _FavoritesTabState extends ConsumerState<FavoritesTab> {
     try {
       final api = ApiClient();
       await api.delete('/favorites/$productId');
+      ApiCache().remove('favorites');
       _load();
+      ref.read(settingsProvider.notifier).refreshStats();
     } catch (e) {
       debugPrint('[FavoritesTab] _removeFavorite 失败: $e');
     }
@@ -67,6 +79,7 @@ class _FavoritesTabState extends ConsumerState<FavoritesTab> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final isLoggedIn = ref.watch(settingsProvider).isLoggedIn;
 
     if (!isLoggedIn) {
@@ -76,7 +89,7 @@ class _FavoritesTabState extends ConsumerState<FavoritesTab> {
           children: [
             Icon(Icons.favorite_border, size: 48, color: context.colors.textTertiary),
             const SizedBox(height: 12),
-            Text('登录后可查看收藏', style: TextStyle(fontSize: context.fs(14), color: context.colors.textTertiary)),
+            Text(l10n.loginToViewFavorites, style: TextStyle(fontSize: context.fs(14), color: context.colors.textTertiary)),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () => context.push('/login'),
@@ -85,7 +98,7 @@ class _FavoritesTabState extends ConsumerState<FavoritesTab> {
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               ),
-              child: const Text('去登录'),
+              child: Text(l10n.goToLogin),
             ),
           ],
         ),
@@ -104,7 +117,7 @@ class _FavoritesTabState extends ConsumerState<FavoritesTab> {
             Icon(Icons.favorite_border, size: 48, color: context.colors.textTertiary),
             const SizedBox(height: 12),
             Text(
-              '暂无收藏',
+              l10n.noFavorites,
               style: TextStyle(fontSize: context.fs(14), color: context.colors.textTertiary),
             ),
           ],
@@ -125,72 +138,85 @@ class _FavoritesTabState extends ConsumerState<FavoritesTab> {
         final item = _items[index];
         final snapshot = (item['product_snapshot'] ?? {}) as Map<String, dynamic>;
 
-        return Container(
-          decoration: BoxDecoration(
-            color: context.colors.cardBg,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: context.colors.border),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Stack(
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  AspectRatio(
-                    aspectRatio: 3 / 4,
-                    child: OptimizedCachedImage(
-                      imageUrl: snapshot['image_url']?.toString() ?? '',
-                      width: double.infinity,
-                      memCacheWidth: 400,
-                      memCacheHeight: 533,
+        final product = MockProduct.fromJson({
+          ...snapshot,
+          'id': item['product_id']?.toString() ?? '',
+        });
+
+        return GestureDetector(
+          onTap: () => context.push('/product-detail', extra: {
+            'product': product,
+            'initialIsFavorited': true,
+          }),
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            decoration: BoxDecoration(
+              color: context.colors.cardBg,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: context.colors.border),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Stack(
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AspectRatio(
+                      aspectRatio: 3 / 4,
+                      child: OptimizedCachedImage(
+                        imageUrl: snapshot['image_url']?.toString() ?? '',
+                        width: double.infinity,
+                        memCacheWidth: 400,
+                        memCacheHeight: 533,
+                      ),
                     ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          snapshot['name']?.toString() ?? '',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: context.fs(11), color: context.colors.textPrimary, height: 1.3),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Text('\u00a5', style: TextStyle(fontSize: context.fs(10), fontWeight: FontWeight.w700, color: AppColors.priceRed)),
-                            Text('${snapshot['price'] ?? 0}', style: TextStyle(fontSize: context.fs(15), fontWeight: FontWeight.w700, color: AppColors.priceRed, height: 1)),
-                          ],
-                        ),
-                      ],
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            snapshot['name']?.toString() ?? '',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: context.fs(11), color: context.colors.textPrimary, height: 1.3),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Text('\u00a5', style: TextStyle(fontSize: context.fs(10), fontWeight: FontWeight.w700, color: AppColors.priceRed)),
+                              Text('${snapshot['price'] ?? 0}', style: TextStyle(fontSize: context.fs(15), fontWeight: FontWeight.w700, color: AppColors.priceRed, height: 1)),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              Positioned(
-                top: 6,
-                left: 6,
-                child: PlatformBadge(platform: snapshot['platform']?.toString() ?? '', isMock: snapshot['is_mock'] == true),
-              ),
-              Positioned(
-                top: 6,
-                right: 6,
-                child: GestureDetector(
-                  onTap: () => _removeFavorite(item['product_id']?.toString() ?? ''),
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                  ],
+                ),
+                Positioned(
+                  top: 6,
+                  left: 6,
+                  child: PlatformBadge(platform: snapshot['platform']?.toString() ?? '', isMock: snapshot['is_mock'] == true),
+                ),
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: GestureDetector(
+                    onTap: () => _removeFavorite(item['product_id']?.toString() ?? ''),
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                      ),
+                      child: const Icon(Icons.favorite, size: 16, color: AppColors.priceRed),
                     ),
-                    child: const Icon(Icons.favorite, size: 16, color: AppColors.priceRed),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },

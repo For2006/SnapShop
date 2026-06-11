@@ -14,10 +14,12 @@ import '../settings/settings_provider.dart';
 
 class ProductDetailPage extends ConsumerStatefulWidget {
   final MockProduct product;
+  final bool? initialIsFavorited;
 
   const ProductDetailPage({
     super.key,
     required this.product,
+    this.initialIsFavorited,
   });
 
   @override
@@ -32,9 +34,11 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
   @override
   void initState() {
     super.initState();
-    _favorited = false;
+    _favorited = widget.initialIsFavorited ?? false;
     _recordBrowse();
-    _checkFavoriteStatus();
+    if (widget.initialIsFavorited == null) {
+      _checkFavoriteStatus();
+    }
   }
 
   Future<void> _checkFavoriteStatus() async {
@@ -76,6 +80,9 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
         },
       });
       _browseRecorded = true;
+      if (mounted) {
+        ref.read(settingsProvider.notifier).refreshStats();
+      }
     } catch (e) {
       debugPrint('[ProductDetailPage] 记录浏览足迹失败: $e');
     }
@@ -136,8 +143,11 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
           },
         });
       }
+      if (mounted) {
+        ref.read(settingsProvider.notifier).refreshStats();
+      }
     } on DioException catch (e) {
-      setState(() => _favorited = wasFavorited);
+      if (mounted) setState(() => _favorited = wasFavorited);
       if (mounted) {
         String message = l10n.favoriteFailed;
         if (e.response != null) {
@@ -153,7 +163,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
         );
       }
     } catch (e) {
-      setState(() => _favorited = wasFavorited);
+      if (mounted) setState(() => _favorited = wasFavorited);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${l10n.favoriteFailed}: $e'), duration: const Duration(seconds: 2)),
@@ -174,8 +184,8 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
       }
       return;
     }
-    final uri = Uri.parse(widget.product.productUrl);
-    if (uri.scheme != 'http' && uri.scheme != 'https') {
+    final url = widget.product.productUrl;
+    if (url.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(l10n.linkOpenFailed), duration: const Duration(seconds: 2)),
@@ -183,12 +193,28 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
       }
       return;
     }
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.linkOpenFailed), duration: const Duration(seconds: 2)),
-      );
+    final uri = Uri.tryParse(url);
+    if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https')) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.linkOpenFailed), duration: const Duration(seconds: 2)),
+        );
+      }
+      return;
+    }
+    try {
+      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.linkOpenFailed), duration: const Duration(seconds: 2)),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.linkOpenFailed), duration: const Duration(seconds: 2)),
+        );
+      }
     }
   }
 

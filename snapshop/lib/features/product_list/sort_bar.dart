@@ -6,7 +6,9 @@ import '../../config/l10n/app_localizations.dart';
 enum SortOption {
   comprehensive,
   priceAsc,
+  priceDesc,
   sales,
+  rating,
 }
 
 class SortBar extends StatelessWidget {
@@ -24,7 +26,9 @@ class SortBar extends StatelessWidget {
     return [
       (key: SortOption.comprehensive, label: l10n.sortComprehensive),
       (key: SortOption.priceAsc, label: l10n.sortPriceAsc),
+      (key: SortOption.priceDesc, label: l10n.sortPriceDesc),
       (key: SortOption.sales, label: l10n.sortSales),
+      (key: SortOption.rating, label: l10n.sortRating),
     ];
   }
 

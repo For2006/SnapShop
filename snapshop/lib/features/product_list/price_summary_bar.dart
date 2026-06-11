@@ -6,8 +6,9 @@ import '../../core/mock_data.dart';
 
 class PriceSummaryBar extends StatelessWidget {
   final List<MockProduct> products;
+  final void Function(String platform)? onPlatformTap;
 
-  const PriceSummaryBar({super.key, required this.products});
+  const PriceSummaryBar({super.key, required this.products, this.onPlatformTap});
 
   @override
   Widget build(BuildContext context) {
@@ -79,50 +80,56 @@ class PriceSummaryBar extends StatelessWidget {
               children: platformData.entries.map((entry) {
                 final platform = entry.key;
                 final data = entry.value;
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: context.colors.cardBg,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: context.colors.border),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        platform,
-                        style: TextStyle(
-                          fontSize: context.fs(11),
-                          fontWeight: FontWeight.w600,
-                          color: context.colors.textPrimary,
+                final platformStr = platform;
+                return GestureDetector(
+                  onTap: onPlatformTap != null
+                      ? () => onPlatformTap!(platformStr)
+                      : null,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: context.colors.cardBg,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: context.colors.border),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          platform,
+                          style: TextStyle(
+                            fontSize: context.fs(11),
+                            fontWeight: FontWeight.w600,
+                            color: context.colors.textPrimary,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '${data.count}\u4ef6',
-                        style: TextStyle(
-                          fontSize: context.fs(10),
-                          color: context.colors.textTertiary,
+                        const SizedBox(width: 6),
+                        Text(
+                          '${data.count}\u4ef6',
+                          style: TextStyle(
+                            fontSize: context.fs(10),
+                            color: context.colors.textTertiary,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '\u00a5${data.minPrice.toStringAsFixed(0)}',
-                        style: TextStyle(
-                          fontSize: context.fs(11),
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.priceRed,
+                        const SizedBox(width: 4),
+                        Text(
+                          '\u00a5${data.minPrice.toStringAsFixed(0)}',
+                          style: TextStyle(
+                            fontSize: context.fs(11),
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.priceRed,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '\u5747\u00a5${data.avgPrice.round()}',
-                        style: TextStyle(
-                          fontSize: context.fs(10),
-                          color: context.colors.textSecondary,
+                        const SizedBox(width: 4),
+                        Text(
+                          '\u5747\u00a5${data.avgPrice.round()}',
+                          style: TextStyle(
+                            fontSize: context.fs(10),
+                            color: context.colors.textSecondary,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 );
               }).toList(),
@@ -150,12 +157,20 @@ class PriceSummaryBar extends StatelessWidget {
     final result = <String, _PlatformPriceData>{};
     for (final entry in map.entries) {
       final list = entry.value;
-      final minPrice = list.map((p) => p.price).reduce((a, b) => a < b ? a : b);
-      final avgPrice = list.fold(0.0, (sum, p) => sum + p.price) / list.length;
+      final prices = list.map((p) => p.price).toList()..sort();
+      final minPrice = prices.first;
+      final maxPrice = prices.last;
+      final avgPrice = prices.fold(0.0, (sum, p) => sum + p) / prices.length;
+      final medianPrice = prices.length % 2 == 0
+          ? (prices[prices.length ~/ 2 - 1] + prices[prices.length ~/ 2]) / 2
+          : prices[prices.length ~/ 2];
+      final priceSpan = maxPrice - minPrice;
       result[entry.key] = _PlatformPriceData(
         count: list.length,
         minPrice: minPrice,
         avgPrice: avgPrice,
+        medianPrice: medianPrice,
+        priceSpan: priceSpan,
       );
     }
     return result;
@@ -194,10 +209,14 @@ class _PlatformPriceData {
   final int count;
   final double minPrice;
   final double avgPrice;
+  final double medianPrice;
+  final double priceSpan;
 
   const _PlatformPriceData({
     required this.count,
     required this.minPrice,
     required this.avgPrice,
+    required this.medianPrice,
+    required this.priceSpan,
   });
 }

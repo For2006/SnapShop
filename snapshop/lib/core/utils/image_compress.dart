@@ -7,14 +7,14 @@ class ImageCompress {
     final result = await FlutterImageCompress.compressWithList(
       Uint8List.fromList(imageBytes),
       quality: quality,
-      minWidth: 512,
-      minHeight: 512,
+      minWidth: 256,
+      minHeight: 256,
       format: CompressFormat.jpeg,
     );
     return result;
   }
 
   static Future<bool> shouldCompress(List<int> imageBytes) async {
-    return imageBytes.length > 200 * 1024; // 超过200KB就压缩
+    return imageBytes.length > 200 * 1024;
   }
 }

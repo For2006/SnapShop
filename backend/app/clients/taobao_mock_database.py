@@ -1,8 +1,9 @@
 import random
 import uuid
-from typing import List, Dict, Any
-from dataclasses import dataclass, asdict
+
+from dataclasses import asdict, dataclass
 from enum import Enum
+from typing import Any
 
 
 class TaobaoCategory(Enum):
@@ -44,7 +45,7 @@ class TaobaoProduct:
     shop_level: str
     product_url: str
     image_url: str
-    tags: List[str]
+    tags: list[str]
     rating: float
     review_count: int
     coupon_amount: float
@@ -56,10 +57,10 @@ class TaobaoProduct:
 
 class TaobaoMockDatabase:
     def __init__(self):
-        self.products: Dict[str, TaobaoProduct] = {}
+        self.products: dict[str, TaobaoProduct] = {}
         self._initialize_database()
 
-    def _generate_product_titles(self) -> Dict[str, List[str]]:
+    def _generate_product_titles(self) -> dict[str, list[str]]:
         return {
             TaobaoCategory.FASHION.value: [
                 "2024新款夏季纯棉短袖T恤男士", "韩版修身显瘦连衣裙女装", "潮流运动休闲鞋老爹鞋",
@@ -123,7 +124,7 @@ class TaobaoMockDatabase:
             ]
         }
 
-    def _generate_sub_categories(self) -> Dict[str, List[str]]:
+    def _generate_sub_categories(self) -> dict[str, list[str]]:
         return {
             TaobaoCategory.FASHION.value: ["男装", "女装", "鞋靴", "箱包", "配饰"],
             TaobaoCategory.ELECTRONICS.value: ["手机", "电脑", "耳机", "家电", "数码配件"],
@@ -137,7 +138,7 @@ class TaobaoMockDatabase:
             TaobaoCategory.PETS.value: ["主粮", "零食", "猫砂", "宠物用品", "宠物玩具"]
         }
 
-    def _generate_shop_names(self) -> List[str]:
+    def _generate_shop_names(self) -> list[str]:
         return [
             "天猫官方旗舰店", "淘宝精选店铺", "品牌直营专卖店", "全球购海外店",
             "工厂直销批发店", "网红直播带货店", "88VIP专属店", "品质生活生活馆",
@@ -146,7 +147,7 @@ class TaobaoMockDatabase:
             "办公文具一站式", "萌宠之家宠物店", "时尚穿搭工作室", "数码家电大卖场"
         ]
 
-    def _generate_shop_levels(self) -> List[str]:
+    def _generate_shop_levels(self) -> list[str]:
         return ["红心1钻", "蓝冠3冠", "金冠5冠", "天猫旗舰店", "天猫超市", "企业店铺"]
 
     def _initialize_database(self):
@@ -216,16 +217,16 @@ class TaobaoMockDatabase:
 
                 self.products[item_id] = product
 
-    def get_all_products(self) -> List[Dict[str, Any]]:
+    def get_all_products(self) -> list[dict[str, Any]]:
         return [asdict(product) for product in self.products.values()]
 
-    def get_product_by_id(self, item_id: str) -> Dict[str, Any]:
+    def get_product_by_id(self, item_id: str) -> dict[str, Any]:
         product = self.products.get(item_id)
         return asdict(product) if product else None
 
-    def search_products(self, keyword: str = "", category: str = "", 
+    def search_products(self, keyword: str = "", category: str = "",
                        min_price: float = 0, max_price: float = 99999,
-                       page: int = 1, page_size: int = 20) -> Dict[str, Any]:
+                       page: int = 1, page_size: int = 20) -> dict[str, Any]:
         results = []
         keyword_lower = keyword.lower()
 
@@ -252,15 +253,15 @@ class TaobaoMockDatabase:
             "data": paginated_results
         }
 
-    def get_products_by_category(self, category: str, page: int = 1, page_size: int = 50) -> Dict[str, Any]:
+    def get_products_by_category(self, category: str, page: int = 1, page_size: int = 50) -> dict[str, Any]:
         return self.search_products(category=category, page=page, page_size=page_size)
 
-    def get_hot_products(self, limit: int = 50) -> List[Dict[str, Any]]:
+    def get_hot_products(self, limit: int = 50) -> list[dict[str, Any]]:
         hot_products = [asdict(p) for p in self.products.values() if p.is_hot]
         hot_products.sort(key=lambda x: x["sales_count"], reverse=True)
         return hot_products[:limit]
 
-    def get_products_by_tag(self, tag: str, page: int = 1, page_size: int = 50) -> Dict[str, Any]:
+    def get_products_by_tag(self, tag: str, page: int = 1, page_size: int = 50) -> dict[str, Any]:
         results = []
         for product in self.products.values():
             if tag in product.tags:
@@ -278,7 +279,7 @@ class TaobaoMockDatabase:
             "data": paginated_results
         }
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         category_counts = {}
         for product in self.products.values():
             if product.category not in category_counts:

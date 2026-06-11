@@ -1,6 +1,5 @@
 import re
-import json
-from typing import Any
+import statistics
 
 
 class ComparisonService:
@@ -37,14 +36,14 @@ class ComparisonService:
 
     def _filter_seo_noise(self, products: list[dict]) -> list[dict]:
         seo_patterns = [
-            r'【[^】]*】', r'\[[^\]]*\]', r'「[^」]*」',
-            r'正品保障', r'假一赔十', r'顺丰包邮', r'限时特惠',
+            r"【[^】]*】", r"\[[^\]]*\]", r"「[^」]*」",
+            r"正品保障", r"假一赔十", r"顺丰包邮", r"限时特惠",
         ]
         for p in products:
             name = p.get("name", "")
             for pattern in seo_patterns:
-                name = re.sub(pattern, '', name)
-            name = re.sub(r'\s+', ' ', name).strip()
+                name = re.sub(pattern, "", name)
+            name = re.sub(r"\s+", " ", name).strip()
             p["name"] = name
         return products
 
@@ -61,7 +60,7 @@ class ComparisonService:
     def _aggregate_prices(self, products: list[dict]) -> list[dict]:
         platforms: dict[str, list[float]] = {}
         platform_names = {"taobao": "淘宝", "jd": "京东", "pdd": "拼多多"}
-        
+
         for p in products:
             plat = p.get("platform", "unknown")
             price = float(p.get("price", 0))
@@ -72,13 +71,16 @@ class ComparisonService:
         summary = []
         for plat, prices in platforms.items():
             if prices:
+                prices_sorted = sorted(prices)
                 summary.append({
                     "platform": plat,
                     "platform_name": platform_names.get(plat, plat),
                     "min_price": min(prices),
                     "avg_price": round(sum(prices) / len(prices), 2),
+                    "median_price": round(statistics.median(prices_sorted), 2),
+                    "price_span": round(max(prices) - min(prices), 2),
                     "count": len(prices),
                 })
-        
+
         summary.sort(key=lambda x: x["min_price"])
         return summary

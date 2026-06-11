@@ -20,11 +20,11 @@ services:
     environment:
       # 覆盖 Docker 内部网络地址（.env 中是 localhost，Docker 里需用服务名）
       - TZ=Asia/Shanghai
-      - DATABASE_URL=postgresql+asyncpg://snapshop:snapshop123@db:5432/snapshop
+      - DATABASE_URL=postgresql+asyncpg://snapshop:${POSTGRES_PASSWORD}@db:5432/snapshop
       - REDIS_URL=redis://redis:6379/0
       - MINIO_ENDPOINT=minio:9000
-      - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD}
     depends_on:
       db:
         condition: service_healthy
@@ -42,7 +42,7 @@ services:
       - "5432:5432"
     environment:
       POSTGRES_USER: snapshop
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-snapshop123}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: snapshop
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -70,8 +70,8 @@ services:
       - "9000:9000"
       - "9001:9001"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     volumes:
       - miniodata:/data
     command: server /data --console-address ":9001"

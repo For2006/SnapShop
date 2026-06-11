@@ -1,7 +1,8 @@
 import random
-from typing import List, Dict, Any
-from dataclasses import dataclass, asdict
+
+from dataclasses import asdict, dataclass
 from enum import Enum
+from typing import Any
 
 
 class JDCategory(Enum):
@@ -43,7 +44,7 @@ class JDProduct:
     shop_type: str
     product_url: str
     image_url: str
-    tags: List[str]
+    tags: list[str]
     rating: float
     review_count: int
     brand: str
@@ -55,10 +56,10 @@ class JDProduct:
 
 class JDMockDatabase:
     def __init__(self):
-        self.products: Dict[str, JDProduct] = {}
+        self.products: dict[str, JDProduct] = {}
         self._initialize_database()
 
-    def _generate_product_titles(self) -> Dict[str, List[str]]:
+    def _generate_product_titles(self) -> dict[str, list[str]]:
         return {
             JDCategory.SPORTS_SHOES.value: [
                 "Nike Air Max 270 男子气垫跑步鞋", "Adidas Ultraboost 22 男女运动跑鞋",
@@ -162,7 +163,7 @@ class JDMockDatabase:
             ]
         }
 
-    def _generate_shop_names(self) -> List[str]:
+    def _generate_shop_names(self) -> list[str]:
         return [
             "京东自营官方旗舰店", "品牌官方旗舰店", "京东家电专卖店",
             "京东运动户外店", "京东数码专营店", "京东美妆馆",
@@ -171,7 +172,7 @@ class JDMockDatabase:
             "品牌授权专卖店", "京东品质生活馆", "京东新品首发店"
         ]
 
-    def _generate_brands(self) -> Dict[str, List[str]]:
+    def _generate_brands(self) -> dict[str, list[str]]:
         return {
             JDCategory.SPORTS_SHOES.value: ["Nike", "Adidas", "李宁", "安踏", "New Balance", "Jordan", "特步", "361°", "Puma", "Asics"],
             JDCategory.DRESS.value: ["优衣库", "ZARA", "H&M", "ONLY", "VERO MODA", "欧时力", "太平鸟", "乐町", "伊芙丽", "诗凡黎"],
@@ -279,7 +280,7 @@ class JDMockDatabase:
 
                 self.products[item_id] = product
 
-    def search_by_keywords(self, keywords: List[str], limit: int = 20) -> List[Dict[str, Any]]:
+    def search_by_keywords(self, keywords: list[str], limit: int = 20) -> list[dict[str, Any]]:
         results = []
         all_products = list(self.products.values())
 
@@ -289,21 +290,21 @@ class JDMockDatabase:
             if matched:
                 results.append(asdict(product))
 
-        results.sort(key=lambda x: (x['sales_count'], x['rating']), reverse=True)
+        results.sort(key=lambda x: (x["sales_count"], x["rating"]), reverse=True)
         return results[:limit]
 
-    def get_all_products(self) -> List[Dict[str, Any]]:
+    def get_all_products(self) -> list[dict[str, Any]]:
         return [asdict(p) for p in self.products.values()]
 
-    def get_product_by_id(self, item_id: str) -> Dict[str, Any] | None:
+    def get_product_by_id(self, item_id: str) -> dict[str, Any] | None:
         product = self.products.get(item_id)
         return asdict(product) if product else None
 
-    def get_products_by_category(self, category: str, limit: int = 100) -> List[Dict[str, Any]]:
+    def get_products_by_category(self, category: str, limit: int = 100) -> list[dict[str, Any]]:
         results = [asdict(p) for p in self.products.values() if p.category == category]
         return results[:limit]
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         category_counts = {}
         for p in self.products.values():
             cat = p.category

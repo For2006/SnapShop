@@ -13,8 +13,6 @@ class AttributeChip extends StatelessWidget {
     required this.onTap,
   });
 
-  bool get _isLowConfidence => attribute.confidence < 0.7;
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -22,14 +20,10 @@ class AttributeChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: _isLowConfidence
-              ? AppColors.warningAmberBg
-              : AppColors.successGreenBg,
+          color: AppColors.successGreenBg,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: _isLowConfidence
-                ? AppColors.warningAmberBorder
-                : AppColors.successGreenBorder,
+            color: AppColors.successGreenBorder,
           ),
         ),
         child: ConstrainedBox(
@@ -46,19 +40,15 @@ class AttributeChip extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: context.fs(12),
-                    color: _isLowConfidence
-                        ? AppColors.warningAmber
-                        : AppColors.successGreen,
+                    color: AppColors.successGreen,
                   ),
                 ),
               ),
               const SizedBox(width: 6),
               Icon(
-                _isLowConfidence ? Icons.warning_amber_rounded : Icons.check_circle,
+                Icons.check_circle,
                 size: 14,
-                color: _isLowConfidence
-                    ? AppColors.warningAmber
-                    : AppColors.successGreen.withValues(alpha: 0.6),
+                color: AppColors.successGreen.withValues(alpha: 0.6),
               ),
             ],
           ),

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../config/l10n/app_localizations.dart';
-import '../../core/network/api_client.dart';
+import '../../core/network/api_client.dart' show ApiClient, AppException;
 import 'package:dio/dio.dart';
 
 enum LocaleOption {
@@ -104,6 +104,7 @@ class SettingsState {
   final bool isLoggedIn;
   final int favoriteCount;
   final int browseCount;
+  final Set<String> favoriteProductIds;
 
   const SettingsState({
     required this.localeOption,
@@ -117,6 +118,7 @@ class SettingsState {
     this.isLoggedIn = false,
     this.favoriteCount = 0,
     this.browseCount = 0,
+    this.favoriteProductIds = const <String>{},
   });
 
   SettingsState copyWith({
@@ -131,6 +133,7 @@ class SettingsState {
     bool? isLoggedIn,
     int? favoriteCount,
     int? browseCount,
+    Set<String>? favoriteProductIds,
   }) {
     return SettingsState(
       localeOption: localeOption ?? this.localeOption,
@@ -144,6 +147,7 @@ class SettingsState {
       isLoggedIn: isLoggedIn ?? this.isLoggedIn,
       favoriteCount: favoriteCount ?? this.favoriteCount,
       browseCount: browseCount ?? this.browseCount,
+      favoriteProductIds: favoriteProductIds ?? this.favoriteProductIds,
     );
   }
 
@@ -162,7 +166,8 @@ class SettingsState {
           bio == other.bio &&
           isLoggedIn == other.isLoggedIn &&
           favoriteCount == other.favoriteCount &&
-          browseCount == other.browseCount;
+          browseCount == other.browseCount &&
+          favoriteProductIds == other.favoriteProductIds;
 
   @override
   int get hashCode => Object.hash(
@@ -177,6 +182,7 @@ class SettingsState {
         isLoggedIn,
         favoriteCount,
         browseCount,
+        favoriteProductIds,
       );
 
   @override
@@ -233,18 +239,24 @@ class SettingsNotifier extends Notifier<SettingsState> {
           )
         : FontSizeOption.standard;
 
+    final isLoggedIn = prefs.getBool(_isLoggedInKey) ?? false;
+    if (!isLoggedIn) {
+      prefs.remove(_nicknameKey);
+      prefs.remove(_bioKey);
+      prefs.remove(_avatarKey);
+    }
     state = SettingsState(
       localeOption: localeOption,
       themeModeOption: themeModeOption,
       fontSizeOption: fontSizeOption,
       pushEnabled: prefs.getBool(_pushEnabledKey) ?? true,
       inAppAlertsEnabled: prefs.getBool(_inAppAlertsEnabledKey) ?? true,
-      avatarPath: prefs.getString(_avatarKey),
-      nickname: prefs.getString(_nicknameKey) ?? 'SnapShop 用户',
-      bio: prefs.getString(_bioKey) ?? '',
-      isLoggedIn: prefs.getBool(_isLoggedInKey) ?? false,
+      avatarPath: isLoggedIn ? prefs.getString(_avatarKey) : null,
+      nickname: isLoggedIn ? (prefs.getString(_nicknameKey) ?? 'SnapShop 用户') : 'SnapShop 用户',
+      bio: isLoggedIn ? (prefs.getString(_bioKey) ?? '') : '',
+      isLoggedIn: isLoggedIn,
     );
-    if (prefs.getBool(_isLoggedInKey) ?? false) {
+    if (isLoggedIn) {
       _loadStats();
     }
   }
@@ -279,7 +291,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
     state = state.copyWith(inAppAlertsEnabled: value);
   }
 
-  Future<void> _loadStats() async {
+  Future<void> refreshStats() async {
     try {
       final api = ApiClient();
       final response = await api.get('/user/stats');
@@ -294,11 +306,48 @@ class SettingsNotifier extends Notifier<SettingsState> {
         browseCount: (data['browse_count'] ?? 0).toInt(),
       );
     } catch (e) {
-      debugPrint('[SettingsProvider] _loadStats 失败: $e');
+      debugPrint('[SettingsProvider] refreshStats 失败: $e');
     }
   }
 
-  Future<void> setProfile(String? avatarPath, String nickname, String bio) async {
+  Future<void> _loadStats() async {
+    await refreshStats();
+  }
+
+  void addFavoriteId(String productId) {
+    state = state.copyWith(favoriteProductIds: {...state.favoriteProductIds, productId});
+  }
+
+  void removeFavoriteId(String productId) {
+    final updated = Set<String>.from(state.favoriteProductIds);
+    updated.remove(productId);
+    state = state.copyWith(favoriteProductIds: updated);
+  }
+
+  Future<void> _loadFavoriteIds() async {
+    try {
+      final api = ApiClient();
+      final response = await api.get('/favorites');
+      final raw = response.data;
+      if (raw is Map<String, dynamic>) {
+        final items = raw['items'];
+        if (items is List) {
+          final ids = <String>{};
+          for (final item in items) {
+            if (item is Map<String, dynamic>) {
+              final pid = item['product_id']?.toString();
+              if (pid != null) ids.add(pid);
+            }
+          }
+          state = state.copyWith(favoriteProductIds: ids);
+        }
+      }
+    } catch (e) {
+      debugPrint('[SettingsProvider] _loadFavoriteIds 失败: $e');
+    }
+  }
+
+  Future<String?> setProfile(String? avatarPath, String nickname, String bio) async {
     final prefs = await SharedPreferences.getInstance();
     if (avatarPath != null) {
       await prefs.setString(_avatarKey, avatarPath);
@@ -310,21 +359,40 @@ class SettingsNotifier extends Notifier<SettingsState> {
       nickname: nickname,
       bio: bio,
     );
+
+    if (state.isLoggedIn) {
+      try {
+        final api = ApiClient();
+        await api.patch('/auth/profile', data: {
+          'nickname': nickname,
+          'bio': bio,
+        });
+      } catch (e) {
+        debugPrint('[SettingsProvider] 同步个人信息到服务器失败: $e');
+      }
+    }
+    return null;
   }
 
   String _handleAuthError(DioException e, String fallback) {
+    if (e.error is AppException) {
+      return (e.error as AppException).message;
+    }
     if (e.response != null) {
       final detail = e.response!.data;
       if (detail is Map<String, dynamic>) {
-        return detail['message']?.toString() ?? fallback;
+        final msg = detail['message']?.toString();
+        if (msg != null && msg.isNotEmpty) return msg;
       }
     }
-    if (e.type == DioExceptionType.connectionTimeout ||
-        e.type == DioExceptionType.receiveTimeout) {
-      return '网络连接超时，请检查网络后重试';
+    if (e.type == DioExceptionType.connectionTimeout) {
+      return '连接超时：服务器无响应，请确认后端已启动';
     }
     if (e.type == DioExceptionType.connectionError) {
-      return '无法连接服务器，请检查网络后重试';
+      return '无法连接：请确认手机USB已连接且运行了 adb reverse';
+    }
+    if (e.type == DioExceptionType.receiveTimeout) {
+      return '响应超时：请求已发出但服务器处理过慢';
     }
     return '$fallback（网络错误）';
   }
@@ -346,6 +414,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
       await prefs.setString(_nicknameKey, nickname);
       state = state.copyWith(isLoggedIn: true, nickname: nickname);
       _loadStats();
+      _loadFavoriteIds();
       return null;
     } on DioException catch (e) {
       return _handleAuthError(e, endpoint == '/auth/login' ? '登录失败' : '注册失败');
@@ -358,15 +427,78 @@ class SettingsNotifier extends Notifier<SettingsState> {
     return _authRequest('/auth/login', phone, password);
   }
 
-  Future<String?> register(String phone, String password) async {
-    return _authRequest('/auth/register', phone, password);
+  Future<String?> register(String phone, String password, String passwordConfirm) async {
+    final api = ApiClient();
+    try {
+      final response = await api.post('/auth/register', data: {
+        'phone': phone,
+        'password': password,
+        'password_confirm': passwordConfirm,
+      });
+      final data = response.data as Map<String, dynamic>;
+      final token = data['access_token'] as String;
+      await ApiClient.setToken(token);
+      final user = data['user'] as Map<String, dynamic>;
+      final nickname = user['nickname']?.toString() ?? phone;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_isLoggedInKey, true);
+      await prefs.setString(_nicknameKey, nickname);
+      state = state.copyWith(isLoggedIn: true, nickname: nickname);
+      _loadStats();
+      _loadFavoriteIds();
+      return null;
+    } on DioException catch (e) {
+      return _handleAuthError(e, '注册失败');
+    } catch (e) {
+      return '注册失败：$e';
+    }
+  }
+
+  Future<String?> smsLogin(String phone, String code) async {
+    final api = ApiClient();
+    try {
+      final response = await api.post('/auth/sms-login', data: {
+        'phone': phone,
+        'code': code,
+      });
+      final data = response.data as Map<String, dynamic>;
+      final token = data['access_token'] as String;
+      await ApiClient.setToken(token);
+      final user = data['user'] as Map<String, dynamic>;
+      final nickname = user['nickname']?.toString() ?? phone;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_isLoggedInKey, true);
+      await prefs.setString(_nicknameKey, nickname);
+      state = state.copyWith(isLoggedIn: true, nickname: nickname);
+      _loadStats();
+      _loadFavoriteIds();
+      return null;
+    } on DioException catch (e) {
+      return _handleAuthError(e, '验证码登录失败');
+    } catch (e) {
+      return '验证码登录失败：$e';
+    }
   }
 
   Future<void> logout() async {
+    try {
+      final api = ApiClient();
+      await api.post('/auth/logout');
+    } catch (_) {}
     await ApiClient.clearToken();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_isLoggedInKey, false);
-    state = state.copyWith(isLoggedIn: false);
+    await prefs.remove(_nicknameKey);
+    await prefs.remove(_bioKey);
+    await prefs.remove(_avatarKey);
+    state = SettingsState(
+      localeOption: state.localeOption,
+      themeModeOption: state.themeModeOption,
+      fontSizeOption: state.fontSizeOption,
+      pushEnabled: state.pushEnabled,
+      inAppAlertsEnabled: state.inAppAlertsEnabled,
+      favoriteProductIds: const <String>{},
+    );
   }
 }
 

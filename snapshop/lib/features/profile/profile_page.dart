@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../config/theme_context.dart';
 import '../../config/l10n/app_localizations.dart';
-import '../../core/network/api_client.dart';
 import '../settings/settings_provider.dart';
 import '../favorites/favorites_tab.dart';
 import 'browse_list_tab.dart';
@@ -18,14 +17,14 @@ class ProfilePage extends ConsumerStatefulWidget {
 class _ProfilePageState extends ConsumerState<ProfilePage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  int _favoriteCount = 0;
-  int _browseCount = 0;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _loadStats();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(settingsProvider.notifier).refreshStats();
+    });
   }
 
   @override
@@ -34,31 +33,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
     super.dispose();
   }
 
-  Future<void> _loadStats() async {
-    try {
-      final api = ApiClient();
-      final response = await api.get('/user/stats');
-      final raw = response.data;
-      if (raw is! Map<String, dynamic>) {
-        debugPrint('[ProfilePage] 响应格式异常: ${raw.runtimeType}');
-        return;
-      }
-      final data = raw;
-      if (mounted) {
-        setState(() {
-          _favoriteCount = (data['favorite_count'] ?? 0).toInt();
-          _browseCount = (data['browse_count'] ?? 0).toInt();
-        });
-      }
-    } catch (e) {
-      debugPrint('[ProfilePage] _loadStats 失败: $e');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final settingsState = ref.watch(settingsProvider);
+    final (favoriteCount, browseCount) = ref.watch(statsProvider);
 
     return Scaffold(
       backgroundColor: context.colors.secondaryBg,
@@ -73,8 +52,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
               unselectedLabelColor: context.colors.textTertiary,
               indicatorColor: context.colors.textPrimary,
               tabs: [
-                Tab(text: '${l10n.settingsFavorites} ($_favoriteCount)'),
-                Tab(text: '${l10n.settingsFootprints} ($_browseCount)'),
+                Tab(text: '${l10n.settingsFavorites} ($favoriteCount)'),
+                Tab(text: '${l10n.settingsFootprints} ($browseCount)'),
               ],
             ),
             Expanded(
@@ -169,7 +148,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    settings.bio.isNotEmpty ? settings.bio : 'user@example.com',
+                    settings.bio.isNotEmpty ? settings.bio : '这个人很懒，什么都没写~',
                     style: TextStyle(
                       fontSize: context.fs(12),
                       color: context.colors.textTertiary,

@@ -1,10 +1,11 @@
 import random
+
 from typing import Any
 
 
 class MockProductLibrary:
     """智能 Mock 商品库，根据关键词动态返回相关商品"""
-    
+
     CATEGORIES = {
         "运动鞋": {
             "keywords": ["运动鞋", "跑步鞋", "球鞋", "跑鞋", "篮球鞋"],
@@ -83,7 +84,7 @@ class MockProductLibrary:
     def get_products(cls, keywords: list[str], platform: str = "pdd", count: int = 20) -> list[dict[str, Any]]:
         """根据关键词获取相关商品"""
         matched_category = "默认"
-        
+
         # 匹配最相关的分类
         all_text = " ".join(keywords).lower()
         for category_name, category_data in cls.CATEGORIES.items():
@@ -95,11 +96,11 @@ class MockProductLibrary:
                     break
             if matched_category != "默认":
                 break
-        
+
         # 获取该分类的商品
         base_products = cls.CATEGORIES[matched_category]["products"]
         results = []
-        
+
         # 生成足够数量的商品（通过随机变体）
         for i in range(count):
             base_p = base_products[i % len(base_products)]
@@ -122,7 +123,7 @@ class MockProductLibrary:
                 "tags": ["有优惠券", "百亿补贴"] if platform == "pdd" else ["自营", "限时特惠"],
             }
             results.append(variant)
-        
+
         # 打乱顺序
         random.shuffle(results)
         return results[:count]

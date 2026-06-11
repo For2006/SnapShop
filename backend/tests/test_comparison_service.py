@@ -1,4 +1,3 @@
-import asyncio
 from app.services.comparison_service import ComparisonService
 
 

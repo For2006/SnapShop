@@ -2,66 +2,10 @@ import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
 import '../../config/theme_context.dart';
 import '../../config/l10n/app_localizations.dart';
+import '../../core/browse_history_item.dart';
 import '../../core/mock_data.dart';
 import 'platform_badge.dart';
 import 'optimized_cached_image.dart';
-
-class BrowseHistoryItem {
-  final String id;
-  final String productId;
-  final String name;
-  final double price;
-  final String platform;
-  final String imageUrl;
-  final String? shopName;
-  final String? viewedAt;
-  final bool isMock;
-
-  const BrowseHistoryItem({
-    required this.id,
-    required this.productId,
-    required this.name,
-    required this.price,
-    required this.platform,
-    required this.imageUrl,
-    this.shopName,
-    this.viewedAt,
-    this.isMock = false,
-  });
-
-  factory BrowseHistoryItem.fromJson(Map<String, dynamic> json) {
-    final snap = json['product_snapshot'] as Map<String, dynamic>? ?? json;
-    return BrowseHistoryItem(
-      id: json['id']?.toString() ?? '',
-      productId: json['product_id']?.toString() ?? '',
-      name: snap['name']?.toString() ?? '',
-      price: double.tryParse(snap['price']?.toString() ?? '0') ?? 0,
-      platform: snap['platform']?.toString() ?? '',
-      imageUrl: snap['image_url']?.toString() ?? '',
-      shopName: snap['shop_name']?.toString(),
-      viewedAt: json['viewed_at']?.toString(),
-      isMock: snap['is_mock'] == true,
-    );
-  }
-
-  MockProduct toMockProduct() {
-    return MockProduct(
-      id: productId,
-      name: name,
-      price: price,
-      originalPrice: price,
-      platform: platform,
-      imageUrl: imageUrl,
-      shopName: shopName ?? '',
-      shopType: 'third_party',
-      rating: 0,
-      salesCount: 0,
-      productUrl: '',
-      isMock: isMock,
-      tags: const [],
-    );
-  }
-}
 
 class BrowseHistorySection extends StatelessWidget {
   final List<MockProduct> products;
@@ -81,7 +25,6 @@ class BrowseHistorySection extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
-    final hasOldData = products.isNotEmpty;
     final displayItems = browseItems.isNotEmpty
         ? browseItems
         : products.map((p) => BrowseHistoryItem(
@@ -126,20 +69,20 @@ class BrowseHistorySection extends StatelessWidget {
           separatorBuilder: (_, __) => Divider(height: 1, indent: 72, color: context.colors.divider),
           itemBuilder: (context, index) {
             final item = displayItems[index];
-            return _buildTile(context, item, hasOldData);
+            return _buildTile(context, item, l10n);
           },
         ),
       ],
     );
   }
 
-  Widget _buildTile(BuildContext context, BrowseHistoryItem item, bool useLegacyTap) {
+  Widget _buildTile(BuildContext context, BrowseHistoryItem item, AppLocalizations l10n) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () => onItemTap?.call(item.toMockProduct()),
         onLongPress: onDelete != null && item.id.isNotEmpty
-            ? () => _showDeleteDialog(context, item)
+            ? () => _showDeleteDialog(context, item, l10n)
             : null,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -195,7 +138,7 @@ class BrowseHistorySection extends StatelessWidget {
                         if (item.viewedAt != null) ...[
                           const SizedBox(width: 8),
                           Text(
-                            _formatTime(item.viewedAt!),
+                            _formatTime(item.viewedAt!, l10n),
                             style: TextStyle(fontSize: context.fs(11), color: context.colors.textSecondary),
                           ),
                         ],
@@ -212,40 +155,34 @@ class BrowseHistorySection extends StatelessWidget {
     );
   }
 
-  void _showDeleteDialog(BuildContext context, BrowseHistoryItem item) {
+  void _showDeleteDialog(BuildContext context, BrowseHistoryItem item, AppLocalizations l10n) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('删除浏览记录'),
-        content: const Text('确定要删除这条浏览记录吗？'),
+        title: Text(l10n.browseDeleteItem),
+        content: Text(l10n.browseDeleteMessage),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.cacheCancel)),
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx);
               final ok = await onDelete?.call(item);
               if (ok == true && context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('已删除'), duration: Duration(seconds: 1)),
+                  SnackBar(content: Text(l10n.historyDeleted), duration: const Duration(seconds: 1)),
                 );
               }
             },
-            child: const Text('删除', style: TextStyle(color: Colors.red)),
+            child: Text(l10n.historyDeleteConfirm, style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
   }
 
-  String _formatTime(String iso) {
+  String _formatTime(String iso, AppLocalizations l10n) {
     try {
-      final dt = DateTime.parse(iso).toLocal();
-      final now = DateTime.now();
-      final diff = now.difference(dt);
-      if (diff.inMinutes < 60) return '${diff.inMinutes}分钟前';
-      if (diff.inHours < 24) return '${diff.inHours}小时前';
-      if (diff.inDays < 7) return '${diff.inDays}天前';
-      return '${dt.month}/${dt.day}';
+      return l10n.formatRelativeTime(DateTime.parse(iso).toLocal());
     } catch (_) {
       return '';
     }

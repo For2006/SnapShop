@@ -1,6 +1,7 @@
 # Environment & secrets
 .env
 .env.local
+.env.production
 *.pem
 *.key
 
@@ -32,6 +33,9 @@ logs/
 # OS
 .DS_Store
 Thumbs.db
+
+# Windows scripts (local only)
+start.ps1
 
 # Flutter/Dart/Pub
 **/doc/api/

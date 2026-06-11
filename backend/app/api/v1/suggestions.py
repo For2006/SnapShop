@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db, get_current_device, get_suggestion_service
+from app.api.deps import get_current_device, get_db, get_suggestion_service
 from app.schemas.suggestion import SuggestionActionRequest
 from app.services.suggestion_service import SuggestionService
 

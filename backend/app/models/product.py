@@ -1,5 +1,6 @@
 import uuid
-from datetime import datetime, timezone
+
+from datetime import UTC, datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, Numeric, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -29,7 +30,7 @@ class Product(Base):
     product_url: Mapped[str] = mapped_column(String(2000), nullable=True, default="")
     is_mock: Mapped[bool] = mapped_column(Boolean, default=False)
     attributes: Mapped[dict] = mapped_column(JSON, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     session = relationship("SearchSession", back_populates="products")
 

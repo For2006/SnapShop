@@ -1,11 +1,11 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, func, delete
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db, get_current_device
-from app.models import SearchSession, RecognitionResult, Product, FilterAction
+from app.api.deps import get_current_device, get_db
+from app.models import FilterAction, Product, RecognitionResult, SearchSession
 
 router = APIRouter()
 
@@ -88,7 +88,7 @@ async def clear_all_search_history(
         except Exception as e:
             await db.rollback()
             logger.error(f"[History] 删除失败: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail={"error_code": "DELETE_FAILED", "message": f"清空失败: {str(e)}"})
+            raise HTTPException(status_code=500, detail={"error_code": "DELETE_FAILED", "message": f"清空失败: {e!s}"})
 
     return {"ok": True, "cleared": cleared}
 
@@ -106,7 +106,7 @@ async def delete_search_history(
 
     result = await db.execute(
         select(SearchSession).where(
-            SearchSession.id == str(sid),
+            SearchSession.id == sid,
             SearchSession.device_id == device_id,
         )
     )
@@ -114,10 +114,10 @@ async def delete_search_history(
     if not session:
         raise HTTPException(status_code=404, detail={"error_code": "NOT_FOUND", "message": "记录不存在"})
 
-    await db.execute(delete(FilterAction).where(FilterAction.session_id == str(sid)))
-    await db.execute(delete(Product).where(Product.session_id == str(sid)))
-    await db.execute(delete(RecognitionResult).where(RecognitionResult.session_id == str(sid)))
-    await db.execute(delete(SearchSession).where(SearchSession.id == str(sid)))
+    await db.execute(delete(FilterAction).where(FilterAction.session_id == sid))
+    await db.execute(delete(Product).where(Product.session_id == sid))
+    await db.execute(delete(RecognitionResult).where(RecognitionResult.session_id == sid))
+    await db.execute(delete(SearchSession).where(SearchSession.id == sid))
     await db.commit()
 
     return {"ok": True}

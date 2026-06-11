@@ -1,18 +1,22 @@
-# ── 国内 Docker Hub 镜像加速配置 ──────────────────────────────
-# 在 Docker Desktop 的 Settings → Docker Engine 或
-# /etc/docker/daemon.json 中添加 registry-mirrors：
-# {
-#   "registry-mirrors": [
-#     "https://docker.m.daocloud.io",
-#     "https://dockerhub.timeweb.cloud",
-#     "https://mirror.ccs.tencentyun.com"
-#   ]
-# }
+# ── 生产环境 Docker Compose 配置 ──────────────────────────────
+# 后端镜像从 GitHub Container Registry (GHCR) 拉取，
+# 由 .github/workflows/docker-publish.yml 在每次 push main 时自动构建。
+#
+# 首次部署：
+#   1. cp .env.production .env && nano .env  # 填入真实密码和密钥
+#   2. echo $GITHUB_TOKEN | docker login ghcr.io -u 你的GitHub用户名 --password-stdin
+#   3. docker compose -f docker-compose.prod.yml pull
+#   4. docker compose -f docker-compose.prod.yml up -d
+#   5. docker compose -f docker-compose.prod.yml exec backend alembic upgrade head
+#
+# 后续更新（服务器上执行）：
+#   cd /opt/snapshop && bash deploy/update.sh
 # ──────────────────────────────────────────────────────────────
 
 services:
   backend:
-    build: .
+    image: ghcr.io/for2006/snapshop-backend:latest
+    pull_policy: always
     env_file:
       - .env
     environment:

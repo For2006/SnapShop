@@ -103,22 +103,37 @@ flutter run
 
 ## 部署
 
-生产环境支持一键部署至阿里云 ECS：
+### 云服务器一键部署（推荐）
+
+在全新云服务器上，只需一条命令：
 
 ```bash
-# 1. 上传项目到服务器
-scp -r . root@YOUR_SERVER_IP:/opt/snapshop
-
-# 2. SSH 登录，初始化环境
-ssh root@YOUR_SERVER_IP
-cd /opt/snapshop/backend && bash ../deploy/setup.sh
-
-# 3. 配置并启动
-cp .env.production .env && nano .env
-bash ../deploy/deploy.sh
+curl -fsSL https://raw.githubusercontent.com/for2006/AI-Shopping/main/bootstrap.sh | sudo bash -s -- --non-interactive
 ```
 
-详细部署说明见 [START_HERE.md](START_HERE.md) 第 7 章。
+部署完成后访问 `http://服务器IP/docs` 即可使用。
+
+### 手动部署
+
+```bash
+# 1. 克隆项目
+git clone https://github.com/for2006/AI-Shopping.git /opt/snapshop
+cd /opt/snapshop
+
+# 2. 一键部署（交互模式）
+sudo bash bootstrap.sh
+```
+
+### 命令行选项
+
+| 选项 | 说明 |
+|---|---|
+| `--ghcr-user=NAME` | GitHub 用户名（默认 for2006） |
+| `--ghcr-token=TOKEN` | GitHub PAT，私有镜像需要 |
+| `--build` | 服务器本地构建（不走 GHCR） |
+| `--non-interactive` | 非交互模式，自动生成密码 |
+
+详细部署说明见 [START_HERE.md](START_HERE.md) 第 8 章。
 
 ## 文档
 

@@ -291,93 +291,122 @@ docker compose up -d
 
 ---
 
-## 8. 阿里云 ECS 部署
+## 8. 云服务器一键部署
 
 ### 8.1 前置条件
 
 | 项目 | 要求 |
 |------|------|
-| ECS 配置 | 2核4GB 及以上（推荐 Ubuntu 22.04 / CentOS 7.9） |
+| 云服务器 | 2核4GB 及以上（推荐 Ubuntu 22.04 / CentOS 7.9） |
 | 安全组规则 | 开放端口: 22 (SSH), 80 (HTTP) |
 | 域名 | 可选，无域名时直接使用服务器公网 IP |
 
-### 8.2 部署步骤
+### 8.2 一键部署（推荐）
 
-#### 步骤 1：上传项目到服务器
+项目根目录的 `bootstrap.sh` 整合了环境初始化、密码生成、镜像拉取、服务启动等全部步骤。在全新云服务器上只需一条命令：
+
+#### 方式 A：远程一键部署
 
 ```bash
-# 在本地项目根目录执行，将项目上传至服务器
-# 方式一：使用 scp（替换 YOUR_SERVER_IP 为实际 IP）
-scp -r . root@YOUR_SERVER_IP:/opt/snapshop
-
-# 方式二：使用 rsync（增量同步，推荐）
-rsync -avz --exclude '.git' --exclude '*.pyc' --exclude '__pycache__' \
-  ./ root@YOUR_SERVER_IP:/opt/snapshop/
+# SSH 登录服务器后，直接执行（无需提前克隆项目）
+curl -fsSL https://raw.githubusercontent.com/for2006/AI-Shopping/main/bootstrap.sh | sudo bash -s -- --non-interactive
 ```
 
-#### 步骤 2：执行环境初始化脚本
+脚本会自动完成：
+1. 安装 Docker + Docker Compose + Git
+2. 克隆项目到 `/opt/snapshop`
+3. 自动生成并保存所有密码
+4. 从 GitHub Container Registry 拉取预构建镜像
+5. 启动全部 6 个容器（backend + PostgreSQL + Redis + MinIO + Nginx）
+6. 运行数据库迁移
+
+> **注意**：自动生成的密码会在屏幕上显示一次，请妥善保存。若需自定义配置，使用下面的交互模式。
+
+#### 方式 B：交互模式（自定义配置）
 
 ```bash
-# SSH 登录服务器
-ssh root@YOUR_SERVER_IP
+# 克隆项目
+git clone https://github.com/for2006/AI-Shopping.git /opt/snapshop
+cd /opt/snapshop
 
-# 进入项目目录
+# 交互式部署（逐个询问配置项，回车使用自动生成值）
+sudo bash bootstrap.sh
+```
+
+#### 方式 C：本地构建模式（不用 GHCR 镜像）
+
+```bash
+cd /opt/snapshop
+sudo bash bootstrap.sh --build
+```
+
+### 8.3 命令行选项
+
+| 选项 | 说明 |
+|------|------|
+| `--ghcr-user=NAME` | GitHub 用户名（默认 `for2006`） |
+| `--ghcr-token=TOKEN` | GitHub Personal Access Token，私有镜像需要 |
+| `--build` | 在服务器上本地构建镜像，不从 GHCR 拉取 |
+| `--non-interactive` | 非交互模式，自动生成所有密码和密钥 |
+| `--project-dir=PATH` | 自定义项目安装目录（默认 `/opt/snapshop`） |
+
+### 8.4 手动部署（不使用 bootstrap.sh）
+
+如果不使用一键脚本，也可以逐步手动部署：
+
+#### 步骤 1：上传项目并初始化环境
+
+```bash
+# 上传项目（任选一种方式）
+git clone https://github.com/for2006/AI-Shopping.git /opt/snapshop
+# 或: rsync -avz --exclude '.git' ./ root@YOUR_SERVER_IP:/opt/snapshop/
+
+# SSH 登录，运行环境初始化
 cd /opt/snapshop/backend
-
-# 运行环境初始化（安装 Docker + Docker Compose）
 bash ../deploy/setup.sh
 ```
 
-#### 步骤 3：配置生产环境变量
+#### 步骤 2：配置环境变量
 
 ```bash
-# 复制生产环境变量模板
 cp .env.production .env
-
-# 编辑 .env，修改以下必填项：
-# - POSTGRES_PASSWORD、MINIO_ROOT_PASSWORD：设置强密码
-# - JWT_SECRET：运行 python3 -c "import secrets; print(secrets.token_urlsafe(32))" 生成
-# - ARK_API_KEY 等 AI 配置已预填比赛专用值，无需修改
 nano .env
 ```
 
-#### 步骤 4：启动服务
+需要修改的必填项：
+- `POSTGRES_PASSWORD`、`MINIO_ROOT_PASSWORD`：设置强密码
+- `JWT_SECRET`：运行 `python3 -c "import secrets; print(secrets.token_urlsafe(32))"` 生成
+- AI 配置（ARK_*）已预填比赛专用值，无需修改
+
+#### 步骤 3：启动服务
 
 ```bash
-# 启动所有服务（后端 + 数据库 + Redis + MinIO + Nginx）
+# 一键部署（拉取 GHCR 镜像并启动）
+bash ../deploy/deploy.sh
+
+# 或手动执行：
 docker compose -f docker-compose.prod.yml up -d
-
-# 查看服务状态
-docker compose -f docker-compose.prod.yml ps
-
-# 查看日志
-docker compose -f docker-compose.prod.yml logs -f
+docker compose -f docker-compose.prod.yml exec backend alembic upgrade head
 ```
 
-#### 步骤 5：验证部署
+#### 步骤 4：验证
 
 ```bash
-# 健康检查
 curl http://YOUR_SERVER_IP/health
-
 # 预期返回：{"status":"healthy"}
-
-# 测试 API
-curl http://YOUR_SERVER_IP/api/v1/history
 ```
 
-### 8.3 更新与重启
+### 8.5 后续更新
+
+代码推送到 main 分支后，GitHub Actions 会自动构建新镜像推送到 GHCR。在服务器上执行：
 
 ```bash
-# 拉取最新代码
-cd /opt/snapshop && git pull
-
-# 重新构建并重启
-cd backend
-docker compose -f docker-compose.prod.yml up -d --build
+cd /opt/snapshop && bash deploy/update.sh
 ```
 
-### 8.4 前端 APK 构建
+该脚本会自动拉取最新镜像、仅重建 backend 容器（不中断其他服务）、运行新迁移。
+
+### 8.6 前端 APK 构建
 
 部署后端后，修改 `snapshop/lib/core/network/api_client.dart` 中的 `_productionBaseUrl` 为服务器 IP，然后构建 APK：
 
@@ -387,7 +416,7 @@ flutter build apk --release
 # APK 位于 build/app/outputs/flutter-apk/app-release.apk
 ```
 
-### 8.5 端口说明
+### 8.7 端口说明
 
 | 端口 | 服务 | 对外 | 说明 |
 |------|------|:--:|------|
@@ -396,3 +425,28 @@ flutter build apk --release
 | 5432 | PostgreSQL | ❌ | 仅 Docker 内网 |
 | 6379 | Redis | ❌ | 仅 Docker 内网 |
 | 9000 | MinIO | ✅ | 图片上传/访问 |
+
+### 8.8 部署架构
+
+```
+互联网 (80端口)
+    │
+    ▼
+┌──────────┐
+│  Nginx   │  反向代理
+└────┬─────┘
+     │
+     ├── /api/*   →  backend:8000  (FastAPI)
+     ├── /images/ →  minio:9000    (图片直接访问)
+     ├── /docs    →  backend:8000  (Swagger UI)
+     └── /health  →  backend:8000  (健康检查)
+           │
+     ┌─────┴──────┬──────────┐
+     ▼            ▼          ▼
+  backend     postgres    redis
+  (FastAPI)   (端口5432)   (端口6379)
+     │
+     ▼
+  minio:9000
+  (对象存储)
+```

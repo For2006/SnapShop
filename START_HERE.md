@@ -6,19 +6,49 @@
 
 ## 1. 环境要求
 
+### 1.1 服务器端（部署后端）
+
+| 资源 | 最低配置 | 推荐配置 |
+|------|---------|---------|
+| CPU | 2 核 | 4 核及以上 |
+| 内存 | 4 GB | 8 GB 及以上 |
+| 磁盘 | 20 GB | 40 GB 及以上 (SSD) |
+| 带宽 | 5 Mbps | 10 Mbps 及以上 |
+| 操作系统 | Ubuntu 22.04 / Debian 12 / CentOS 7.9 | Ubuntu 22.04 LTS |
+
+| 软件 | 版本 | 用途 |
+|------|------|------|
+| Docker | 24.0+ | 容器运行时 |
+| Docker Compose Plugin | 2.20+ | 多容器编排 |
+| Git | 2.40+ | 代码拉取 |
+
+> 如果使用 GHCR 预构建镜像，服务器只需 Docker + Docker Compose + Git，无需 Python/Node.js 等运行时。
+
+### 1.2 网络端口
+
+| 端口 | 方向 | 用途 |
+|------|:----:|------|
+| 22 | 入站 | SSH 远程管理 |
+| 80 | 入站 | HTTP 访问 (Nginx 反向代理) |
+| 443 | 入站 | HTTPS 访问 (可选) |
+
+> PostgreSQL (5432)、Redis (6379)、MinIO (9000/9001) 仅 Docker 内网通信，**无需对外开放**。云服务器安全组需开放 22 和 80 端口。
+
+### 1.3 本地开发环境（运行 Flutter 前端）
+
 | 组件 | 版本要求 | 说明 |
 |------|---------|------|
 | Python | 3.12+ | 后端 FastAPI 运行环境 |
 | Flutter SDK | 3.2+ (Dart >=3.2.0) | 前端跨平台框架 |
 | Docker & Docker Compose | 最新稳定版 | 编排 PostgreSQL、Redis、MinIO |
-| PostgreSQL | 16（Docker 提供） | 主数据库 |
-| Redis | 7（Docker 提供） | 缓存与限流 |
+| PostgreSQL | 16 (Docker 提供) | 主数据库 |
+| Redis | 7 (Docker 提供) | 缓存与限流 |
 
 **可选**：Android Studio 或 Xcode（用于编译运行 Flutter 移动端应用）。
 
 ---
 
-## 2. 快速启动
+## 2. 快速启动（本地开发）
 
 ### 步骤 1：启动后端服务
 
@@ -406,15 +436,134 @@ cd /opt/snapshop && bash deploy/update.sh
 
 该脚本会自动拉取最新镜像、仅重建 backend 容器（不中断其他服务）、运行新迁移。
 
-### 8.6 前端 APK 构建
+### 8.6 前端 APK 构建与分发
 
-部署后端后，修改 `snapshop/lib/core/network/api_client.dart` 中的 `_productionBaseUrl` 为服务器 IP，然后构建 APK：
+部署后端后，构建前端 APK 安装包供用户下载安装。
+
+#### 8.6.1 在服务器上构建 APK
+
+**1. 安装 Flutter SDK**
+
+```bash
+cd /opt
+wget https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.22.0-stable.tar.xz
+tar xf flutter_linux_3.22.0-stable.tar.xz
+echo 'export PATH="$PATH:/opt/flutter/bin"' >> ~/.bashrc
+source ~/.bashrc
+flutter doctor
+```
+
+**2. 安装 Android SDK 和 JDK**
+
+```bash
+# JDK 17
+apt-get install -y openjdk-17-jdk-headless
+
+# Android 命令行工具
+mkdir -p /opt/android-sdk/cmdline-tools
+cd /opt/android-sdk/cmdline-tools
+wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+unzip commandlinetools-linux-11076708_latest.zip
+mv cmdline-tools latest
+
+export ANDROID_HOME=/opt/android-sdk
+export PATH="$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools"
+
+yes | sdkmanager --licenses
+sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+```
+
+**3. 配置后端地址**
+
+修改 `snapshop/lib/core/network/api_client.dart` 中的生产环境地址：
+
+```dart
+static const String _productionBaseUrl = 'http://你的服务器IP';
+```
+
+**4. 配置 APK 签名（推荐）**
+
+```bash
+# 生成签名密钥
+keytool -genkey -v -keystore /opt/snapshop/snapshop-release-key.jks \
+  -keyalg RSA -keysize 2048 -validity 10000 \
+  -alias snapshop-release -storetype JKS
+```
+
+创建 `snapshop/android/key.properties`：
+```
+storePassword=你的密钥库密码
+keyPassword=你的密钥密码
+keyAlias=snapshop-release
+storeFile=/opt/snapshop/snapshop-release-key.jks
+```
+
+编辑 `snapshop/android/app/build.gradle.kts`，在文件顶部 `android` 块之前添加：
+
+```kotlin
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('key.properties')
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+```
+
+在 `android` 块内添加 `signingConfigs`，并将 `buildTypes.release.signingConfig` 改为：
+
+```kotlin
+signingConfigs {
+    create("release") {
+        keyAlias = keystoreProperties["keyAlias"] as String?
+        keyPassword = keystoreProperties["keyPassword"] as String?
+        storeFile = keystoreProperties["storeFile"] ? file(keystoreProperties["storeFile"]) : null
+        storePassword = keystoreProperties["storePassword"] as String?
+    }
+}
+buildTypes {
+    release {
+        signingConfig = signingConfigs.getByName("release")
+    }
+}
+```
+
+> 跳过签名步骤时，APK 将使用 debug 密钥签名，不影响功能测试。
+
+**5. 构建 APK**
+
+```bash
+cd /opt/snapshop/snapshop
+flutter pub get
+flutter build apk --release
+# APK 输出路径: build/app/outputs/flutter-apk/app-release.apk
+```
+
+#### 8.6.2 在本地 Windows 开发机构建
 
 ```bash
 cd snapshop
+
+# 修改后端地址为服务器 IP
+# 编辑 lib/core/network/api_client.dart
+
+# 构建 Release APK
 flutter build apk --release
-# APK 位于 build/app/outputs/flutter-apk/app-release.apk
 ```
+
+或使用 `start.ps1` 一键完成（自动检测 ADB 设备、构建 APK、安装并启动）：
+
+```powershell
+.\start.ps1
+```
+
+#### 8.6.3 分发 APK
+
+| 方式 | 操作 |
+|------|------|
+| **Nginx 静态下载** | 将 APK 放入 Nginx 静态目录，用户访问 `http://服务器IP/app-release.apk` 下载 |
+| **ADB 安装** | USB 连接手机后 `adb install app-release.apk` |
+| **二维码分发** | 生成 APK 下载链接的二维码，手机扫码下载安装 |
+
+> Android 设备需开启「设置 → 安全 → 允许安装未知来源应用」才能安装非应用商店的 APK。
 
 ### 8.7 端口说明
 
@@ -437,7 +586,7 @@ flutter build apk --release
 └────┬─────┘
      │
      ├── /api/*   →  backend:8000  (FastAPI)
-     ├── /images/ →  minio:9000    (图片直接访问)
+     ├── /images/ →  minio:9000    (图片直连)
      ├── /docs    →  backend:8000  (Swagger UI)
      └── /health  →  backend:8000  (健康检查)
            │
@@ -449,4 +598,57 @@ flutter build apk --release
      ▼
   minio:9000
   (对象存储)
+```
+
+---
+
+## 9. 完整部署到发布流程速查
+
+从零开始，一条路径走通：**服务器部署后端 → 构建前端 APK → 分发安装**。
+
+```
+┌─────────────────────────────────────────────────────┐
+│  1. 准备云服务器                                      │
+│     - 2核4GB+, Ubuntu 22.04, 开放 22/80 端口          │
+├─────────────────────────────────────────────────────┤
+│  2. 一键部署后端                                      │
+│     curl .../bootstrap.sh | sudo bash --non-interactive │
+│     记录屏幕输出的密码, 验证 curl http://IP/health      │
+├─────────────────────────────────────────────────────┤
+│  3. 构建 APK                                         │
+│     (服务器或本地) flutter build apk --release        │
+│     生成: build/app/outputs/flutter-apk/app-release.apk │
+├─────────────────────────────────────────────────────┤
+│  4. 分发 APK                                         │
+│     - Nginx 静态下载 / 二维码 / ADB 安装 / 应用商店      │
+│     - 用户安装后即可连接后端使用                         │
+└─────────────────────────────────────────────────────┘
+```
+
+### 关键命令速查
+
+```bash
+# 服务器部署
+curl -fsSL https://raw.githubusercontent.com/For2006/SnapShop/main/bootstrap.sh | sudo bash -s -- --non-interactive
+
+# 验证后端
+curl http://服务器IP/health
+
+# 更新后端
+cd /opt/snapshop && bash deploy/update.sh
+
+# 构建 APK (服务器)
+cd /opt/snapshop/snapshop && flutter pub get && flutter build apk --release
+
+# 构建 APK (本地)
+cd snapshop && flutter build apk --release
+
+# ADB 安装 APK
+adb install build/app/outputs/flutter-apk/app-release.apk
+
+# 查看容器状态
+docker compose -f /opt/snapshop/backend/docker-compose.prod.yml ps
+
+# 查看后端日志
+docker compose -f /opt/snapshop/backend/docker-compose.prod.yml logs -f backend
 ```

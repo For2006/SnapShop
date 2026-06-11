@@ -309,7 +309,7 @@ docker compose up -d
 
 ```bash
 # SSH 登录服务器后，直接执行（无需提前克隆项目）
-curl -fsSL https://raw.githubusercontent.com/for2006/AI-Shopping/main/bootstrap.sh | sudo bash -s -- --non-interactive
+curl -fsSL https://raw.githubusercontent.com/For2006/SnapShop/main/bootstrap.sh | sudo bash -s -- --non-interactive
 ```
 
 脚本会自动完成：
@@ -326,7 +326,7 @@ curl -fsSL https://raw.githubusercontent.com/for2006/AI-Shopping/main/bootstrap.
 
 ```bash
 # 克隆项目
-git clone https://github.com/for2006/AI-Shopping.git /opt/snapshop
+git clone https://github.com/For2006/SnapShop.git /opt/snapshop
 cd /opt/snapshop
 
 # 交互式部署（逐个询问配置项，回车使用自动生成值）
@@ -358,7 +358,7 @@ sudo bash bootstrap.sh --build
 
 ```bash
 # 上传项目（任选一种方式）
-git clone https://github.com/for2006/AI-Shopping.git /opt/snapshop
+git clone https://github.com/For2006/SnapShop.git /opt/snapshop
 # 或: rsync -avz --exclude '.git' ./ root@YOUR_SERVER_IP:/opt/snapshop/
 
 # SSH 登录，运行环境初始化

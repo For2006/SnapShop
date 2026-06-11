@@ -108,7 +108,7 @@ flutter run
 在全新云服务器上，只需一条命令：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/for2006/AI-Shopping/main/bootstrap.sh | sudo bash -s -- --non-interactive
+curl -fsSL https://raw.githubusercontent.com/For2006/SnapShop/main/bootstrap.sh | sudo bash -s -- --non-interactive
 ```
 
 部署完成后访问 `http://服务器IP/docs` 即可使用。
@@ -117,7 +117,7 @@ curl -fsSL https://raw.githubusercontent.com/for2006/AI-Shopping/main/bootstrap.
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/for2006/AI-Shopping.git /opt/snapshop
+git clone https://github.com/For2006/SnapShop.git /opt/snapshop
 cd /opt/snapshop
 
 # 2. 一键部署（交互模式）

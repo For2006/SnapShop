@@ -10,7 +10,7 @@ set -e
 #      cd /opt/snapshop && bash bootstrap.sh
 #
 #    方式2 (远程一键):
-#      curl -fsSL https://raw.githubusercontent.com/for2006/AI-Shopping/main/bootstrap.sh | bash -s -- --ghcr-user=for2006
+#      curl -fsSL https://raw.githubusercontent.com/For2006/SnapShop/main/bootstrap.sh | bash -s -- --ghcr-user=for2006
 #
 #  选项:
 #    --ghcr-user=NAME       GitHub 用户名 (拉取 GHCR 镜像, 默认: for2006)
@@ -112,7 +112,7 @@ if [ -f "$COMPOSE_FILE" ]; then
     cd "$PROJECT_DIR"
     git pull origin main 2>/dev/null || warn "git pull 失败, 使用现有代码继续"
 else
-    REPO_URL="https://github.com/${GHCR_USER}/AI-Shopping.git"
+    REPO_URL="https://github.com/${GHCR_USER}/SnapShop.git"
     info "克隆项目: $REPO_URL"
     git clone "$REPO_URL" "$PROJECT_DIR"
     cd "$PROJECT_DIR"

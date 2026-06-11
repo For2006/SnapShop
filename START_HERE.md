@@ -330,12 +330,13 @@ docker compose -f /opt/snapshop/backend/docker-compose.prod.yml logs -f backend
 **前置条件**：仅需安装 Docker Desktop 和 Git（Python 为可选，无 Python 时自动用 PowerShell 生成密钥）。
 
 ```powershell
-# 方式一：在当前目录一键部署
-cd "f:\AI Shopping"
+# 方式一：从 GitHub 克隆并在当前目录下直接运行
+git clone https://github.com/For2006/SnapShop.git
+cd SnapShop
 .\bootstrap.ps1
 
-# 方式二：从 GitHub 克隆并部署（项目不存在时自动克隆）
-.\bootstrap.ps1 -ProjectDir "f:\AI Shopping"
+# 方式二：指定自定义路径部署
+.\bootstrap.ps1 -ProjectDir "D:\Projects\SnapShop"
 
 # 方式三：仅构建 Docker 镜像，不启动服务
 .\bootstrap.ps1 -BuildOnly
@@ -363,7 +364,7 @@ cd "f:\AI Shopping"
 
 | 选项 | 说明 |
 |------|------|
-| `-ProjectDir PATH` | 项目目录（默认 `f:\AI Shopping`） |
+| `-ProjectDir PATH` | 项目目录（默认：脚本所在目录） |
 | `-SkipClone` | 跳过克隆，使用已有项目代码 |
 | `-BuildOnly` | 仅构建 Docker 镜像，不启动服务 |
 
@@ -393,24 +394,26 @@ cd "f:\AI Shopping"
 ### B.2 克隆项目
 
 ```powershell
-# 在任意工作目录执行，例如 C:\Projects
-cd \
-git clone https://github.com/For2006/SnapShop.git "f:\AI Shopping"
-cd "f:\AI Shopping"
+# 在任意工作目录执行
+git clone https://github.com/For2006/SnapShop.git
+cd SnapShop
 ```
 
 克隆后项目结构：
 
 ```
-f:\AI Shopping\
+SnapShop\
 ├── backend/          # Python FastAPI 后端
 ├── snapshop/         # Flutter 前端
 ├── deploy/           # 部署脚本 + Nginx 配置
 ├── docs/             # 文档
+├── bootstrap.ps1     # Windows 一键部署脚本
 ├── bootstrap.sh      # 一键部署脚本（Linux 服务器用）
 ├── START_HERE.md     # 本文档
 └── README.md
 ```
+
+> 以下所有命令均以**项目根目录**为当前工作目录，用 `cd backend` / `cd snapshop` 切换即可，无需关心绝对路径。
 
 ---
 
@@ -437,7 +440,7 @@ f:\AI Shopping\
 ### B.4 配置后端 `.env`
 
 ```powershell
-cd "f:\AI Shopping\backend"
+cd backend
 
 # 复制环境变量模板
 copy .env.example .env
@@ -527,7 +530,7 @@ ARK_LLM_ENDPOINT_ID=
 ### B.5 启动 Docker 服务
 
 ```powershell
-cd "f:\AI Shopping\backend"
+cd backend
 
 # 启动所有容器（首次启动会构建 backend 镜像并拉取依赖镜像）
 docker compose up -d
@@ -575,7 +578,7 @@ docker compose logs minio-init | Select-String "snapshop-images ready"
 ### B.7 数据库迁移 & 验证
 
 ```powershell
-cd "f:\AI Shopping\backend"
+cd backend
 
 # 运行数据库迁移（创建表结构）
 docker compose exec backend alembic upgrade head
@@ -597,7 +600,7 @@ curl http://localhost:8000/health
 ### B.8 启动 Flutter 前端
 
 ```powershell
-cd "f:\AI Shopping\snapshop"
+cd snapshop
 
 # 安装依赖（首次执行）
 flutter pub get
@@ -636,7 +639,7 @@ adb devices
 adb reverse tcp:8000 tcp:8000
 
 # 5. 启动 Flutter
-cd "f:\AI Shopping\snapshop"
+cd snapshop
 flutter run
 ```
 
@@ -847,7 +850,7 @@ docker compose logs db
 修改 `.env` 后需要重启后端服务：
 
 ```powershell
-cd "f:\AI Shopping\backend"
+cd backend
 docker compose down
 docker compose up -d
 ```
@@ -857,7 +860,7 @@ docker compose up -d
 **Flutter 编译错误**
 
 ```powershell
-cd "f:\AI Shopping\snapshop"
+cd snapshop
 flutter clean
 flutter pub get
 flutter run

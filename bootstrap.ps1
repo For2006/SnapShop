@@ -2,21 +2,20 @@
 #  SnapShop Windows 本地一键部署脚本
 #
 #  用法:
-#    方式1 (本地已有项目):
-#      cd "f:\AI Shopping" ; .\bootstrap.ps1
+#     方式1 (项目目录下直接运行):
+#       .\bootstrap.ps1
 #
-#    方式2 (远程一键):
-#      git clone https://github.com/For2006/SnapShop.git "f:\AI Shopping"
-#      cd "f:\AI Shopping" ; .\bootstrap.ps1
+#     方式2 (任意位置指定路径):
+#       .\bootstrap.ps1 -ProjectDir "D:\my-projects\SnapShop"
 #
 #  选项:
-#    -ProjectDir PATH      项目目录 (默认: f:\AI Shopping)
+#    -ProjectDir PATH      项目目录 (默认: 脚本所在目录)
 #    -SkipClone            跳过克隆，使用已有项目
 #    -BuildOnly            仅构建，不启动
 # ============================================================
 
 param(
-    [string]$ProjectDir = "f:\AI Shopping",
+    [string]$ProjectDir = $PSScriptRoot,
     [switch]$SkipClone = $false,
     [switch]$BuildOnly = $false
 )

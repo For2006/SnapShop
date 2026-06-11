@@ -539,17 +539,35 @@ flutter build apk --release
 
 #### 8.6.2 在本地 Windows 开发机构建
 
+**⚠️ 重要**：构建 Release APK 前必须配置正确的后端地址。Release 模式下 App 使用 `_productionBaseUrl` 常量，不会自动检测环境。
+
+编辑 `snapshop/lib/core/network/api_client.dart` 第 105 行：
+
+```dart
+// 方式 A：使用 ADB 反向代理（手机 USB 连接电脑）
+static const _productionBaseUrl = 'http://localhost:8000/api/v1';
+
+// 方式 B：连接云服务器（替换为你的服务器 IP）
+static const _productionBaseUrl = 'http://你的服务器IP/api/v1';
+```
+
+| 方式 | 适用场景 | 额外操作 |
+|------|----------|----------|
+| `localhost` | 手机 USB 连接电脑，电脑运行后端 | 需执行 `adb reverse tcp:8000 tcp:8000` |
+| 服务器 IP | 后端已部署到云服务器，评委远程访问 | 无额外操作 |
+
+> **评委友好推荐**：如果评委会独立使用 App，建议先部署后端到云服务器（参考上方 8.1 节），将 `_productionBaseUrl` 改为服务器 IP 后再构建 APK。
+
 ```bash
 cd snapshop
 
-# 修改后端地址为服务器 IP
-# 编辑 lib/core/network/api_client.dart
-
-# 构建 Release APK
+# 1. 按上述说明修改 api_client.dart 中的 _productionBaseUrl
+# 2. 构建 Release APK
 flutter build apk --release
+# 输出: build/app/outputs/flutter-apk/app-release.apk
 ```
 
-或使用 `start.ps1` 一键完成（自动检测 ADB 设备、构建 APK、安装并启动）：
+或使用 `start.ps1` 一键完成（自动检测 ADB 设备、构建 APK、安装并启动，**使用 localhost 地址**）：
 
 ```powershell
 .\start.ps1

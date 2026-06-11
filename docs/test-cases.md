@@ -4,6 +4,15 @@
 
 ---
 
+## 前置条件（执行任意测试用例前必须满足）
+
+1. **后端已启动**：`curl http://<后端地址>/health` 返回 `{"status":"healthy"}`
+2. **App 已配置后端地址**：Release APK 需在构建前修改 `snapshop/lib/core/network/api_client.dart` 第 105 行的 `_productionBaseUrl`，指向实际后端地址（详见 START_HERE.md 8.6.2 节）
+3. **AI 服务可用**：后端 `.env` 中 `AI_MOCK_MODE=false`，火山方舟 VLM/LLM 密钥有效
+4. **（ADB 方式）端口转发**：若 App 使用 `localhost` 地址且手机通过 USB 连接，需执行 `adb reverse tcp:8000 tcp:8000`
+
+---
+
 ## TC001: 拍照识物全流程
 
 - **前置条件**: App 已连接后端服务，后端 `.env` 中 `AI_MOCK_MODE=false`，火山方舟 VLM/LLM 密钥有效

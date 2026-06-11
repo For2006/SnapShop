@@ -322,15 +322,27 @@ flutter build apk --release
 
 #### 场景 B：在本地 Windows 开发机构建
 
+**⚠️ 必须先配置后端地址**：编辑 `snapshop/lib/core/network/api_client.dart` 第 105 行：
+
+```dart
+// 方式 A：ADB 反向代理（手机 USB 连电脑，电脑运行后端）
+static const _productionBaseUrl = 'http://localhost:8000/api/v1';
+
+// 方式 B：连接云服务器（替换为你的服务器 IP）
+static const _productionBaseUrl = 'http://你的服务器IP/api/v1';
+```
+
+| 方式 | 场景 | 额外操作 |
+|------|------|----------|
+| `localhost` | 手机 USB 连电脑 | 需执行 `adb reverse tcp:8000 tcp:8000` |
+| 服务器 IP | 后端已部署到云服务器 | 无需额外操作 |
+
 ```bash
 cd snapshop
 
-# 修改后端地址为服务器 IP
-# 编辑 lib/core/network/api_client.dart:
-#   static const String _productionBaseUrl = 'http://你的服务器IP';
-
 # 构建 Release APK
 flutter build apk --release
+# APK 输出路径: build/app/outputs/flutter-apk/app-release.apk
 ```
 
 或使用项目自带的 `start.ps1` 一键完成（自动检测 ADB 设备、构建 APK、安装并启动）：

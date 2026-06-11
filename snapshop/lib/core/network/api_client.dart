@@ -102,7 +102,7 @@ class ApiClient {
   static const _tokenKey = 'snapshop_access_token';
   static const _customBaseUrlKey = 'snapshop_custom_base_url';
   // TODO: 替换为你的阿里云服务器公网 IP
-  static const _productionBaseUrl = 'http://YOUR_SERVER_IP:8000/api/v1';
+  static const _productionBaseUrl = 'http://localhost:8000/api/v1';
   static String? _deviceId;
   static String? _accessToken;
   static String? _customBaseUrl;
